@@ -7,7 +7,9 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
-import { COLORS, SPACING, FONT_SIZES } from '../constants/config';
+import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
+
+const FONT_SIZES = TYPOGRAPHY.sizes;
 
 const { width } = Dimensions.get('window');
 const PIN_LENGTH = 6;
