@@ -149,7 +149,7 @@ export const TransactionHistoryScreen: React.FC<TransactionHistoryScreenProps> =
           title="No Transactions Yet"
           description="Your transaction history will appear here once you make or receive payments"
           actionText="Make a Payment"
-          onAction={() => navigation.navigate('Home')}
+          onAction={() => navigation.navigate('MainTabs', { screen: 'Home' })}
         />
       ) : (
         <FlatList
