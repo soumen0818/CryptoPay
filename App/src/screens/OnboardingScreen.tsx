@@ -6,10 +6,14 @@ import {
   TouchableOpacity,
   Dimensions,
   ScrollView,
+  Image,
 } from 'react-native';
-import { COLORS, SPACING, FONT_SIZES } from '../constants/config';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../constants/theme';
 
+const FONT_SIZES = TYPOGRAPHY.sizes;
 const { width, height } = Dimensions.get('window');
+const isSmallDevice = height < 700;
 
 interface OnboardingScreenProps {
   navigation: any;
@@ -21,49 +25,58 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <View style={styles.logo}>
-          <Text style={styles.logoText}>₿</Text>
+    <SafeAreaView style={styles.container}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Image
+            source={require('../../assets/cpay_logo.jpg')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.title}>CryptoPay</Text>
+          <Text style={styles.subtitle}>Pay with crypto, simple as UPI</Text>
         </View>
-        <Text style={styles.title}>Welcome to CryptoPay</Text>
-        <Text style={styles.subtitle}>
-          Pay instantly with crypto, as simple as UPI
-        </Text>
-      </View>
 
-      <View style={styles.features}>
-        <FeatureItem
-          icon="🔒"
-          title="Secure & Private"
-          description="Your wallet, your keys. All data encrypted locally."
-        />
-        <FeatureItem
-          icon="⚡"
-          title="Instant Payments"
-          description="Scan QR, tap pay. Transactions in seconds."
-        />
-        <FeatureItem
-          icon="🆓"
-          title="Zero Fees"
-          description="Test on Polygon Amoy. No hidden charges."
-        />
-        <FeatureItem
-          icon="📱"
-          title="Simple UX"
-          description="No gas, no wallets, no complexity. Just pay."
-        />
-      </View>
+        {/* Features */}
+        <View style={styles.featuresContainer}>
+          <FeatureItem 
+            icon="🔒" 
+            title="Secure & Private" 
+            description="Your wallet, your keys. All data encrypted locally."
+          />
+          <FeatureItem 
+            icon="⚡" 
+            title="Instant Payments" 
+            description="Scan QR, tap pay. Transactions in seconds."
+          />
+          <FeatureItem 
+            icon="🆓" 
+            title="Zero Fees" 
+            description="Test on Polygon Amoy. No hidden charges."
+          />
+          <FeatureItem 
+            icon="📱" 
+            title="Simple UX" 
+            description="No gas, no wallets, no complexity. Just pay."
+          />
+        </View>
 
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.button} onPress={handleGetStarted}>
-          <Text style={styles.buttonText}>Get Started</Text>
-        </TouchableOpacity>
-        <Text style={styles.disclaimer}>
-          This is a testnet app. No real money involved.
-        </Text>
-      </View>
-    </ScrollView>
+        {/* Footer */}
+        <View style={styles.footer}>
+          <TouchableOpacity style={styles.button} onPress={handleGetStarted}>
+            <Text style={styles.buttonText}>Get Started</Text>
+          </TouchableOpacity>
+          <Text style={styles.disclaimer}>
+            ℹ️ Testnet • No real money
+          </Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -76,7 +89,7 @@ interface FeatureItemProps {
 const FeatureItem: React.FC<FeatureItemProps> = ({ icon, title, description }) => (
   <View style={styles.featureItem}>
     <Text style={styles.featureIcon}>{icon}</Text>
-    <View style={styles.featureText}>
+    <View style={{ flex: 1 }}>
       <Text style={styles.featureTitle}>{title}</Text>
       <Text style={styles.featureDescription}>{description}</Text>
     </View>
@@ -88,89 +101,78 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  content: {
+  scrollContent: {
     flexGrow: 1,
     paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.xl,
+    paddingTop: isSmallDevice ? SPACING.lg : SPACING.xl,
+    paddingBottom: SPACING.lg,
+    justifyContent: 'space-between',
   },
   header: {
     alignItems: 'center',
-    marginTop: SPACING.xl,
-    marginBottom: SPACING.xl * 2,
+    marginBottom: isSmallDevice ? SPACING.md : SPACING.lg,
   },
   logo: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACING.lg,
-  },
-  logoText: {
-    fontSize: 40,
-    color: COLORS.card,
+    width: isSmallDevice ? 80 : 100,
+    height: isSmallDevice ? 80 : 100,
+    borderRadius: isSmallDevice ? 40 : 50,
+    marginBottom: SPACING.md,
   },
   title: {
-    fontSize: FONT_SIZES.xxl,
-    fontWeight: 'bold',
+    fontSize: isSmallDevice ? FONT_SIZES.xl : FONT_SIZES.xxl,
+    fontWeight: '700',
     color: COLORS.text,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.xs,
   },
   subtitle: {
-    fontSize: FONT_SIZES.md,
+    fontSize: isSmallDevice ? FONT_SIZES.xs : FONT_SIZES.sm,
     color: COLORS.textSecondary,
     textAlign: 'center',
   },
-  features: {
+  featuresContainer: {
     flex: 1,
-    marginBottom: SPACING.xl,
+    justifyContent: 'center',
   },
   featureItem: {
     flexDirection: 'row',
-    marginBottom: SPACING.xl,
-    padding: SPACING.md,
     backgroundColor: COLORS.card,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: 14,
+    padding: isSmallDevice ? SPACING.md : SPACING.lg,
+    marginBottom: isSmallDevice ? SPACING.sm : SPACING.md,
+    ...SHADOWS.sm,
   },
   featureIcon: {
-    fontSize: 32,
+    fontSize: isSmallDevice ? 26 : 32,
     marginRight: SPACING.md,
   },
-  featureText: {
-    flex: 1,
-  },
   featureTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
+    fontSize: isSmallDevice ? FONT_SIZES.sm : FONT_SIZES.md,
+    fontWeight: '700',
     color: COLORS.text,
     marginBottom: SPACING.xs,
   },
   featureDescription: {
-    fontSize: FONT_SIZES.sm,
+    fontSize: isSmallDevice ? FONT_SIZES.xs : FONT_SIZES.sm,
     color: COLORS.textSecondary,
-    lineHeight: 20,
+    lineHeight: isSmallDevice ? 16 : 18,
   },
   footer: {
     alignItems: 'center',
+    marginTop: isSmallDevice ? SPACING.md : SPACING.lg,
   },
   button: {
     backgroundColor: COLORS.primary,
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.xl * 2,
-    borderRadius: 12,
+    paddingVertical: isSmallDevice ? SPACING.md : SPACING.lg,
+    paddingHorizontal: SPACING.xl,
+    borderRadius: 14,
     width: '100%',
     alignItems: 'center',
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm,
+    ...SHADOWS.sm,
   },
   buttonText: {
     color: COLORS.card,
-    fontSize: FONT_SIZES.lg,
+    fontSize: isSmallDevice ? FONT_SIZES.md : FONT_SIZES.lg,
     fontWeight: '600',
   },
   disclaimer: {
