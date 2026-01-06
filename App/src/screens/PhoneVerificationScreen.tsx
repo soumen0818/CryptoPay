@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,18 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Dimensions,
+  ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { sendOTP, verifyOTP, isDevMode, getDevPhoneNumber, getDevOTP } from '../services/auth';
-import { COLORS, SPACING, FONT_SIZES } from '../constants/config';
+import { sendOTP, verifyOTP, getDevPhoneNumber, getDevOTP, getRemainingAttempts } from '../services/auth';
+import { hasWallet } from '../services/wallet';
+import { COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS, SHADOWS } from '../constants/theme';
+
+const FONT_SIZES = TYPOGRAPHY.sizes;
+const { width, height } = Dimensions.get('window');
+const isSmallDevice = height < 700;
 
 interface PhoneVerificationScreenProps {
   navigation: any;
@@ -28,6 +36,12 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(30);
   const [canResend, setCanResend] = useState(false);
+  const [remainingAttempts, setRemainingAttempts] = useState(3);
+  const otpInputRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    loadRemainingAttempts();
+  }, []);
 
   useEffect(() => {
     if (step === 'otp' && timer > 0) {
@@ -43,6 +57,11 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
       return () => clearInterval(interval);
     }
   }, [step, timer]);
+
+  const loadRemainingAttempts = async () => {
+    const { remaining } = await getRemainingAttempts();
+    setRemainingAttempts(remaining);
+  };
 
   const handleSendOTP = async () => {
     if (!phoneNumber || phoneNumber.length < 10) {
@@ -65,9 +84,23 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
       setStep('otp');
       setTimer(30);
       setCanResend(false);
+      if (result.remainingAttempts !== undefined) {
+        setRemainingAttempts(result.remainingAttempts);
+      }
       Alert.alert('OTP Sent', 'Please check your SMS for the verification code');
     } else {
-      Alert.alert('Error', result.error || 'Failed to send OTP');
+      if (result.resetTime) {
+        const hours = Math.ceil((result.resetTime.getTime() - Date.now()) / (1000 * 60 * 60));
+        Alert.alert(
+          'Rate Limit Exceeded',
+          `You've reached the maximum OTP requests for today. Try again in ${hours} hour${hours > 1 ? 's' : ''}.`
+        );
+      } else {
+        Alert.alert('Error', result.error || 'Failed to send OTP');
+      }
+      if (result.remainingAttempts !== undefined) {
+        setRemainingAttempts(result.remainingAttempts);
+      }
     }
 
     setLoading(false);
@@ -87,13 +120,26 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
       // Save phone number
       await AsyncStorage.setItem('phone_number', result.phoneNumber || phoneNumber);
       
-      // Navigate to PIN creation
-      Alert.alert('Success', 'Phone number verified! ✓', [
-        {
-          text: 'Continue',
-          onPress: () => navigation.replace('CreatePIN'),
-        },
-      ]);
+      // Check if user already has a wallet (returning user after sign out)
+      const walletExists = await hasWallet();
+      
+      if (walletExists) {
+        // Returning user - go directly to home (skip PIN creation)
+        Alert.alert('Welcome Back!', 'Phone verified successfully! ✓', [
+          {
+            text: 'Continue',
+            onPress: () => navigation.replace('MainTabs'),
+          },
+        ]);
+      } else {
+        // New user - needs to create PIN and wallet
+        Alert.alert('Success', 'Phone number verified! ✓', [
+          {
+            text: 'Continue',
+            onPress: () => navigation.replace('CreatePIN'),
+          },
+        ]);
+      }
     } else {
       Alert.alert('Error', result.error || 'Invalid OTP');
       setOtp('');
@@ -109,35 +155,49 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View style={styles.content}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.logo}>
-            <Text style={styles.logoText}>📱</Text>
-          </View>
-          <Text style={styles.title}>
-            {step === 'phone' ? 'Enter Phone Number' : 'Verify OTP'}
-          </Text>
-          <Text style={styles.subtitle}>
-            {step === 'phone'
-              ? "We'll send you a verification code"
-              : `Code sent to ${phoneNumber}`}
-          </Text>
-        </View>
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.content}>
+            {/* Header */}
+            <View style={styles.header}>
+              <View style={styles.logo}>
+                <Text style={styles.logoText}>📱</Text>
+              </View>
+              <Text style={styles.title}>
+                {step === 'phone' ? 'Enter Phone Number' : 'Verify OTP'}
+              </Text>
+              <Text style={styles.subtitle}>
+                {step === 'phone'
+                  ? "We'll send you a verification code"
+                  : `Code sent to ${phoneNumber}`}
+              </Text>
+            </View>
 
-        {/* Development Mode Indicator */}
-        {isDevMode() && (
-          <View style={styles.devBanner}>
-            <Text style={styles.devText}>🔧 DEV MODE (Supabase)</Text>
-            <Text style={styles.devSubtext}>
-              Phone: {getDevPhoneNumber()} | OTP: {getDevOTP()}
-            </Text>
-          </View>
-        )}
+            {/* Rate Limit Indicator */}
+            {remainingAttempts <= 3 && step === 'phone' && (
+              <View style={styles.rateLimitBanner}>
+                <Text style={styles.rateLimitText}>
+                  {remainingAttempts === 0
+                    ? '⚠️ Daily OTP limit reached'
+                    : `📊 ${remainingAttempts} OTP request${remainingAttempts > 1 ? 's' : ''} remaining today`}
+                </Text>
+              </View>
+            )}
+
+            {/* Development Hint */}
+            <View style={styles.devHint}>
+              <Text style={styles.devHintText}>
+                💡 Hint: Use {getDevPhoneNumber()} with OTP {getDevOTP()} for testing
+              </Text>
+            </View>
 
         {/* Input Section */}
         {step === 'phone' ? (
@@ -156,9 +216,9 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
             </View>
 
             <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
+              style={[styles.button, (loading || remainingAttempts === 0) && styles.buttonDisabled]}
               onPress={handleSendOTP}
-              disabled={loading}
+              disabled={loading || remainingAttempts === 0}
             >
               {loading ? (
                 <ActivityIndicator color={COLORS.card} />
@@ -169,15 +229,48 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
           </View>
         ) : (
           <View style={styles.inputSection}>
+            {/* OTP Individual Boxes */}
+            <View style={styles.otpContainer}>
+              {[0, 1, 2, 3, 4, 5].map((index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.otpBox,
+                    otp.length === index && styles.otpBoxFocused,
+                    otp[index] && styles.otpBoxFilled,
+                  ]}
+                >
+                  <Text style={[
+                    styles.otpDigit,
+                    otp[index] && styles.otpDigitFilled,
+                  ]}>
+                    {otp[index] || ''}
+                  </Text>
+                </View>
+              ))}
+            </View>
+            
+            {/* Hidden TextInput for keyboard */}
             <TextInput
-              style={styles.otpInput}
+              ref={otpInputRef}
+              style={styles.hiddenInput}
               value={otp}
               onChangeText={setOtp}
-              placeholder="Enter 6-digit OTP"
               keyboardType="number-pad"
               maxLength={6}
               autoFocus
             />
+            
+            {/* Tap to edit hint */}
+            <TouchableOpacity 
+              style={styles.otpTapArea}
+              onPress={() => otpInputRef.current?.focus()}
+              activeOpacity={1}
+            >
+              <Text style={styles.otpHint}>
+                {otp.length === 0 ? 'Tap to enter OTP' : otp.length < 6 ? `${6 - otp.length} digits remaining` : '✓ OTP entered'}
+              </Text>
+            </TouchableOpacity>
 
             {/* Timer and Resend */}
             <View style={styles.timerContainer}>
@@ -215,15 +308,17 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
           </View>
         )}
 
-        {/* Security Notice */}
-        <View style={styles.securityNotice}>
-          <Text style={styles.securityIcon}>🔒</Text>
-          <Text style={styles.securityText}>
-            Your phone number is verified to ensure account security
-          </Text>
-        </View>
-      </View>
-    </KeyboardAvoidingView>
+            {/* Security Notice */}
+            <View style={styles.securityNotice}>
+              <Text style={styles.securityIcon}>🔒</Text>
+              <Text style={styles.securityText}>
+                Your phone number is verified to ensure account security
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
@@ -232,19 +327,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  scrollContent: {
+    flexGrow: 1,
+  },
   content: {
     flex: 1,
     padding: SPACING.lg,
-    paddingTop: SPACING.xl * 3,
+    paddingTop: isSmallDevice ? SPACING.lg : SPACING.xl * 2,
   },
   header: {
     alignItems: 'center',
-    marginBottom: SPACING.xl,
+    marginBottom: isSmallDevice ? SPACING.md : SPACING.xl,
   },
   logo: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: isSmallDevice ? 60 : 80,
+    height: isSmallDevice ? 60 : 80,
+    borderRadius: isSmallDevice ? 30 : 40,
     backgroundColor: COLORS.primary + '20',
     alignItems: 'center',
     justifyContent: 'center',
@@ -254,14 +352,41 @@ const styles = StyleSheet.create({
     fontSize: 40,
   },
   title: {
-    fontSize: FONT_SIZES.xxl,
+    fontSize: isSmallDevice ? FONT_SIZES.xl : FONT_SIZES.xxl,
     fontWeight: 'bold',
     color: COLORS.text,
     marginBottom: SPACING.xs,
   },
   subtitle: {
-    fontSize: FONT_SIZES.md,
+    fontSize: isSmallDevice ? FONT_SIZES.sm : FONT_SIZES.md,
     color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+  rateLimitBanner: {
+    backgroundColor: COLORS.warning + '20',
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.warning,
+    padding: SPACING.md,
+    borderRadius: 8,
+    marginBottom: SPACING.lg,
+  },
+  rateLimitText: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.warning,
+    textAlign: 'center',
+  },
+  devHint: {
+    backgroundColor: COLORS.info + '15',
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.info,
+    padding: SPACING.md,
+    borderRadius: 8,
+    marginBottom: SPACING.lg,
+  },
+  devHintText: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.info,
     textAlign: 'center',
   },
   devBanner: {
@@ -287,17 +412,21 @@ const styles = StyleSheet.create({
   phoneInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.card,
+    backgroundColor: COLORS.surface,
     borderRadius: 12,
     borderWidth: 2,
     borderColor: COLORS.border,
     marginBottom: SPACING.lg,
     paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
   },
   countryCode: {
     fontSize: FONT_SIZES.lg,
     fontWeight: '600',
     color: COLORS.text,
+    paddingRight: SPACING.sm,
+    borderRightWidth: 1,
+    borderRightColor: COLORS.border,
     marginRight: SPACING.sm,
   },
   phoneInput: {
@@ -306,16 +435,54 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     paddingVertical: SPACING.md,
   },
-  otpInput: {
-    backgroundColor: COLORS.card,
+  otpContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
+    paddingHorizontal: isSmallDevice ? 0 : SPACING.xs,
+  },
+  otpBox: {
+    width: isSmallDevice ? 44 : 48,
+    height: isSmallDevice ? 52 : 56,
     borderRadius: 12,
     borderWidth: 2,
     borderColor: COLORS.border,
-    fontSize: FONT_SIZES.xl,
-    textAlign: 'center',
-    paddingVertical: SPACING.lg,
-    marginBottom: SPACING.md,
-    letterSpacing: 8,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOWS.sm,
+  },
+  otpBoxFocused: {
+    borderColor: COLORS.primary,
+    borderWidth: 2,
+    backgroundColor: COLORS.primaryLight + '10',
+  },
+  otpBoxFilled: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary + '10',
+  },
+  otpDigit: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+  },
+  otpDigitFilled: {
+    color: COLORS.primary,
+  },
+  hiddenInput: {
+    position: 'absolute',
+    opacity: 0,
+    height: 0,
+    width: 0,
+  },
+  otpTapArea: {
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  otpHint: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
   },
   timerContainer: {
     alignItems: 'center',
