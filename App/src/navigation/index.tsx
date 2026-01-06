@@ -8,6 +8,7 @@ import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { PhoneVerificationScreen } from '../screens/PhoneVerificationScreen';
 import { CreatePINScreen } from '../screens/CreatePINScreen';
 import { ConfirmPINScreen } from '../screens/ConfirmPINScreen';
+import { ChangePINScreen } from '../screens/ChangePINScreen';
 import { BiometricSetupScreen } from '../screens/BiometricSetupScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -27,6 +28,7 @@ type RootStackParamList = {
   PhoneVerification: undefined;
   CreatePIN: undefined;
   ConfirmPIN: { pin: string };
+  ChangePIN: undefined;
   BiometricSetup: undefined;
   Login: undefined;
   MainTabs: undefined;
@@ -96,6 +98,7 @@ export const Navigation = () => {
         <Stack.Screen name="PhoneVerification" component={PhoneVerificationScreen} />
         <Stack.Screen name="CreatePIN" component={CreatePINScreen} />
         <Stack.Screen name="ConfirmPIN" component={ConfirmPINScreen} />
+        <Stack.Screen name="ChangePIN" component={ChangePINScreen} />
         <Stack.Screen name="BiometricSetup" component={BiometricSetupScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="MainTabs" component={MainTabs} />
