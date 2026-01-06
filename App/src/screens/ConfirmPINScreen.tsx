@@ -3,17 +3,19 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PINInput } from '../components/PINInput';
 import { createWallet } from '../services/wallet';
 import { supabase } from '../services/supabase';
-import { COLORS, SPACING, FONT_SIZES } from '../constants/config';
+import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
+
+const FONT_SIZES = TYPOGRAPHY.sizes;
 
 // Simple PIN hashing (same as wallet.ts)
 function hashPin(pin: string): string {
@@ -111,6 +113,9 @@ export const ConfirmPINScreen: React.FC<ConfirmPINScreenProps> = ({
 
         // Save wallet address locally for biometric setup
         await AsyncStorage.setItem('wallet_address', walletAddress);
+        
+        // Set biometric as disabled by default
+        await AsyncStorage.setItem('biometric_enabled', 'false');
 
         // Hash the PIN for Supabase storage
         const pinHash = hashPin(originalPin);
@@ -155,6 +160,11 @@ export const ConfirmPINScreen: React.FC<ConfirmPINScreenProps> = ({
     >
       <View style={styles.content}>
         <View style={styles.header}>
+          <Image
+            source={require('../../assets/cpay_logo.jpg')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.title}>Confirm Your PIN</Text>
           <Text style={styles.subtitle}>
             Re-enter your PIN to confirm
@@ -176,14 +186,6 @@ export const ConfirmPINScreen: React.FC<ConfirmPINScreenProps> = ({
             <Text style={styles.loadingText}>Creating your wallet...</Text>
           </View>
         )}
-
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          disabled={loading}
-        >
-          <Text style={styles.backButtonText}>← Go Back</Text>
-        </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
@@ -202,6 +204,12 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: SPACING.xl * 2,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: SPACING.lg,
   },
   title: {
     fontSize: FONT_SIZES.xxl,
@@ -225,14 +233,5 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
     fontSize: FONT_SIZES.md,
     color: COLORS.textSecondary,
-  },
-  backButton: {
-    marginTop: SPACING.xl,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.primary,
-    fontWeight: '500',
   },
 });
