@@ -3,13 +3,14 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
-  Alert,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { PINInput } from '../components/PINInput';
-import { COLORS, SPACING, FONT_SIZES } from '../constants/config';
+import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
+
+const FONT_SIZES = TYPOGRAPHY.sizes;
 
 interface CreatePINScreenProps {
   navigation: any;
@@ -48,6 +49,11 @@ export const CreatePINScreen: React.FC<CreatePINScreenProps> = ({ navigation }) 
     >
       <View style={styles.content}>
         <View style={styles.header}>
+          <Image
+            source={require('../../assets/cpay_logo.jpg')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.title}>Create Your PIN</Text>
           <Text style={styles.subtitle}>
             Choose a 6-digit PIN to secure your wallet
@@ -90,6 +96,12 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: SPACING.xl * 2,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: SPACING.lg,
   },
   title: {
     fontSize: FONT_SIZES.xxl,
