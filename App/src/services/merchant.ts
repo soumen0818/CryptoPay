@@ -34,7 +34,6 @@ export async function isMerchant(walletAddress: string): Promise<boolean> {
       .from('merchants')
       .select('id')
       .eq('wallet_address', walletAddress)
-      .eq('is_active', true)
       .single();
 
     if (error && error.code !== 'PGRST116') {
