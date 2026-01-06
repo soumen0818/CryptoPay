@@ -15,7 +15,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import QRCode from 'react-native-qrcode-svg';
 import * as Clipboard from 'expo-clipboard';
 import { createMerchantQRCode } from '../services/merchant';
-import { COLORS, SPACING, FONT_SIZES } from '../constants/config';
+import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
+
+const FONT_SIZES = TYPOGRAPHY.sizes;
 
 interface MerchantQRGeneratorScreenProps {
   navigation: any;
