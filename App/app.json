@@ -1,35 +1,73 @@
 {
   "expo": {
-    "name": "Frontend",
-    "slug": "Frontend",
+    "name": "CryptoPay",
+    "slug": "cryptopay",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/cpay_logo.jpg",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/cpay_logo.jpg",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#6366f1"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cryptopay.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "CryptoPay needs camera access to scan QR codes for payments",
+        "NSLocationWhenInUseUsageDescription": "CryptoPay uses your location to secure transactions",
+        "NSFaceIDUsageDescription": "Use Face ID to quickly and securely access your wallet"
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/cpay_logo.jpg",
+        "backgroundColor": "#6366f1"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false,
-      "package": "crypto.pay"
+      "package": "com.cryptopay.app",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.INTERNET",
+        "android.permission.VIBRATE",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/cpay_logo.jpg"
     },
     "plugins": [
       "expo-secure-store",
-      "expo-barcode-scanner"
-    ]
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "CryptoPay needs camera access to scan QR codes for payments"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "CryptoPay uses your location to secure transactions"
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Use Face ID to quickly and securely access your wallet"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "3c7a4ef7-ad99-42d0-8b88-0ee8e28542c9"
+      }
+    }
   }
 }
