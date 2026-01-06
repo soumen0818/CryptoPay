@@ -4,10 +4,14 @@ import {
   Text,
   StyleSheet,
   Dimensions,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hasWallet } from '../services/wallet';
-import { COLORS, SPACING, FONT_SIZES } from '../constants/config';
+import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
+
+const FONT_SIZES = TYPOGRAPHY.sizes;
 
 const { width } = Dimensions.get('window');
 
@@ -54,11 +58,17 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.logoContainer}>
-        <View style={styles.logo}>
-          <Text style={styles.logoText}>₿</Text>
-        </View>
+        <Image
+          source={require('../../assets/cpay_logo.jpg')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
         <Text style={styles.title}>CryptoPay</Text>
         <Text style={styles.subtitle}>Pay like UPI, powered by Web3</Text>
+      </View>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="small" color={COLORS.card} />
+        <Text style={styles.loadingText}>Loading...</Text>
       </View>
     </View>
   );
@@ -75,18 +85,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logo: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: COLORS.card,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     marginBottom: SPACING.xl,
-  },
-  logoText: {
-    fontSize: 50,
-    fontWeight: 'bold',
-    color: COLORS.primary,
   },
   title: {
     fontSize: FONT_SIZES.xxl,
@@ -97,5 +99,15 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: FONT_SIZES.md,
     color: COLORS.card + 'CC',
+  },
+  loadingContainer: {
+    position: 'absolute',
+    bottom: 80,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.card + 'AA',
+    marginTop: SPACING.sm,
   },
 });
