@@ -9,11 +9,13 @@ import {
   ScrollView,
   Share,
   Platform,
+  Switch,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { clearWallet } from '../services/wallet';
 import { isMerchant, getMerchantProfile } from '../services/merchant';
+import { isBiometricAvailable, getBiometricType } from '../utils/biometric';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS, BLOCKCHAIN_CONFIG } from '../constants/theme';
 import { Card, Button } from '../components';
 
@@ -25,10 +27,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
   const [walletAddress, setWalletAddress] = useState<string>('');
   const [merchantStatus, setMerchantStatus] = useState<boolean>(false);
   const [businessName, setBusinessName] = useState<string>('');
+  const [biometricEnabled, setBiometricEnabled] = useState<boolean>(false);
+  const [biometricType, setBiometricType] = useState<string>('Biometric');
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
 
   useEffect(() => {
     loadWalletAddress();
     checkMerchantStatus();
+    loadSettings();
   }, []);
 
   const loadWalletAddress = async () => {
@@ -36,6 +42,23 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
     if (address) {
       setWalletAddress(address);
     }
+  };
+
+  const loadSettings = async () => {
+    // Load biometric setting
+    const biometricSetting = await AsyncStorage.getItem('biometric_enabled');
+    setBiometricEnabled(biometricSetting === 'true');
+    
+    // Check biometric type
+    const available = await isBiometricAvailable();
+    if (available) {
+      const type = await getBiometricType();
+      setBiometricType(type);
+    }
+    
+    // Load notification setting
+    const notifSetting = await AsyncStorage.getItem('notifications_enabled');
+    setNotificationsEnabled(notifSetting !== 'false');
   };
 
   const checkMerchantStatus = async () => {
@@ -72,19 +95,24 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
     Linking.openURL(explorerUrl);
   };
 
-  const handleResetWallet = () => {
+  const handleSignOut = () => {
     Alert.alert(
-      '⚠️ Reset Wallet',
-      'This will delete your wallet permanently. Make sure you have backed up your recovery phrase!\n\n(For development: This is safe since wallets are generated randomly)',
+      '👋 Sign Out',
+      'Are you sure you want to sign out? You will need to verify your phone number again to access your wallet.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Reset',
+          text: 'Sign Out',
           style: 'destructive',
           onPress: async () => {
-            await clearWallet();
-            await AsyncStorage.clear();
-            Alert.alert('Wallet Reset', 'Please restart the app to create a new wallet.', [
+            // Clear session data (but keep wallet safe)
+            await AsyncStorage.removeItem('pin_hash');
+            await AsyncStorage.removeItem('biometric_enabled');
+            await AsyncStorage.removeItem('auth_token');
+            await AsyncStorage.removeItem('phone_verified');
+            await AsyncStorage.removeItem('phone_number'); // Clear this so user must re-verify
+            
+            Alert.alert('Signed Out', 'You have been signed out successfully.', [
               {
                 text: 'OK',
                 onPress: () => navigation.replace('Splash'),
@@ -93,6 +121,76 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
           },
         },
       ]
+    );
+  };
+
+  const handleToggleBiometric = async (value: boolean) => {
+    if (value) {
+      const available = await isBiometricAvailable();
+      if (!available) {
+        Alert.alert('Not Available', `${biometricType} is not set up on this device. Please enable it in your device settings.`);
+        return;
+      }
+    }
+    setBiometricEnabled(value);
+    await AsyncStorage.setItem('biometric_enabled', value.toString());
+  };
+
+  const handleToggleNotifications = async (value: boolean) => {
+    setNotificationsEnabled(value);
+    await AsyncStorage.setItem('notifications_enabled', value.toString());
+  };
+
+  const handleExportWallet = () => {
+    Alert.alert(
+      '🔐 Export Recovery Phrase',
+      'Your recovery phrase is the only way to restore your wallet. Never share it with anyone!',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Show Phrase',
+          onPress: () => {
+            Alert.alert(
+              '⚠️ Security Warning',
+              'Make sure no one is watching your screen. Your recovery phrase will be displayed.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'I Understand',
+                  onPress: () => {
+                    // In production, you would decrypt and show the mnemonic
+                    Alert.alert('Recovery Phrase', 'This feature requires PIN verification. Coming soon!');
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
+  const handleSupport = () => {
+    Alert.alert(
+      'Coming Soon',
+      'Help & Support feature is under development. We\'re working hard to bring you the best support experience!',
+      [{ text: 'OK', style: 'default' }]
+    );
+  };
+
+  const handlePrivacyPolicy = () => {
+    Alert.alert(
+      'Coming Soon',
+      'Privacy Policy will be available soon.',
+      [{ text: 'OK', style: 'default' }]
+    );
+  };
+
+  const handleTerms = () => {
+    Alert.alert(
+      'Coming Soon',
+      'Terms of Service will be available soon.',
+      [{ text: 'OK', style: 'default' }]
     );
   };
 
@@ -178,45 +276,162 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
       {/* Network Info */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Network</Text>
-        <View style={styles.infoCard}>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Network</Text>
-            <Text style={styles.infoValue}>Polygon Amoy Testnet</Text>
+        <View style={styles.networkCard}>
+          <View style={styles.networkHeader}>
+            <View style={styles.networkStatusBadge}>
+              <View style={styles.networkDotActive} />
+              <Text style={styles.networkStatusText}>Connected</Text>
+            </View>
           </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Chain ID</Text>
-            <Text style={styles.infoValue}>{BLOCKCHAIN_CONFIG.CHAIN_ID}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>RPC</Text>
-            <Text style={styles.infoValue} numberOfLines={1}>
-              {BLOCKCHAIN_CONFIG.RPC_URL}
-            </Text>
+          <View style={styles.networkDetails}>
+            <View style={styles.networkRow}>
+              <Text style={styles.networkLabel}>Network</Text>
+              <Text style={styles.networkValue}>Polygon Amoy Testnet</Text>
+            </View>
+            <View style={[styles.networkRow, styles.networkRowLast]}>
+              <Text style={styles.networkLabel}>Chain ID</Text>
+              <Text style={styles.networkValue}>{BLOCKCHAIN_CONFIG.CHAIN_ID}</Text>
+            </View>
           </View>
         </View>
       </View>
 
-      {/* Developer Section */}
+      {/* Security Section */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Developer</Text>
-        
+        <Text style={styles.sectionTitle}>Security</Text>
+        <View style={styles.settingsCard}>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingIcon}>🔐</Text>
+              <View>
+                <Text style={styles.settingLabel}>{biometricType}</Text>
+                <Text style={styles.settingDescription}>Quick unlock with {biometricType.toLowerCase()}</Text>
+              </View>
+            </View>
+            <Switch
+              value={biometricEnabled}
+              onValueChange={handleToggleBiometric}
+              trackColor={{ false: COLORS.border, true: COLORS.primary + '50' }}
+              thumbColor={biometricEnabled ? COLORS.primary : COLORS.textSecondary}
+            />
+          </View>
+          
+          <View style={styles.settingDivider} />
+          
+          <TouchableOpacity style={styles.settingRow} onPress={handleExportWallet}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingIcon}>📝</Text>
+              <View>
+                <Text style={styles.settingLabel}>Backup Recovery Phrase</Text>
+                <Text style={styles.settingDescription}>Export your 12-word phrase</Text>
+              </View>
+            </View>
+            <Text style={styles.settingArrow}>→</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.settingDivider} />
+          
+          <TouchableOpacity style={styles.settingRow} onPress={() => navigation.navigate('ChangePIN')}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingIcon}>🔢</Text>
+              <View>
+                <Text style={styles.settingLabel}>Change PIN</Text>
+                <Text style={styles.settingDescription}>Update your 6-digit PIN</Text>
+              </View>
+            </View>
+            <Text style={styles.settingArrow}>→</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Preferences Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Preferences</Text>
+        <View style={styles.settingsCard}>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingIcon}>🔔</Text>
+              <View>
+                <Text style={styles.settingLabel}>Notifications</Text>
+                <Text style={styles.settingDescription}>Transaction alerts</Text>
+              </View>
+            </View>
+            <Switch
+              value={notificationsEnabled}
+              onValueChange={handleToggleNotifications}
+              trackColor={{ false: COLORS.border, true: COLORS.primary + '50' }}
+              thumbColor={notificationsEnabled ? COLORS.primary : COLORS.textSecondary}
+            />
+          </View>
+          
+          <View style={styles.settingDivider} />
+          
+          <TouchableOpacity style={styles.settingRow} onPress={() => navigation.navigate('TransactionHistory')}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingIcon}>📊</Text>
+              <View>
+                <Text style={styles.settingLabel}>Transaction History</Text>
+                <Text style={styles.settingDescription}>View all transactions</Text>
+              </View>
+            </View>
+            <Text style={styles.settingArrow}>→</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Support Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Support</Text>
+        <View style={styles.settingsCard}>
+          <TouchableOpacity style={styles.settingRow} onPress={handleSupport}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingIcon}>💬</Text>
+              <View>
+                <Text style={styles.settingLabel}>Help & Support</Text>
+                <Text style={styles.settingDescription}>Contact our team</Text>
+              </View>
+            </View>
+            <Text style={styles.settingArrow}>→</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.settingDivider} />
+          
+          <TouchableOpacity style={styles.settingRow} onPress={handlePrivacyPolicy}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingIcon}>🔒</Text>
+              <View>
+                <Text style={styles.settingLabel}>Privacy Policy</Text>
+              </View>
+            </View>
+            <Text style={styles.settingArrow}>→</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.settingDivider} />
+          
+          <TouchableOpacity style={styles.settingRow} onPress={handleTerms}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingIcon}>📄</Text>
+              <View>
+                <Text style={styles.settingLabel}>Terms of Service</Text>
+              </View>
+            </View>
+            <Text style={styles.settingArrow}>→</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Account Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Account</Text>
         <TouchableOpacity
-          style={styles.testButton}
-          onPress={handleOpenQRGenerator}
+          style={styles.signOutButton}
+          onPress={handleSignOut}
         >
-          <Text style={styles.testButtonIcon}>🔲</Text>
-          <Text style={styles.testButtonText}>QR Code Generator</Text>
+          <Text style={styles.signOutButtonIcon}>👋</Text>
+          <Text style={styles.signOutButtonText}>Sign Out</Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={styles.dangerButton}
-          onPress={handleResetWallet}
-        >
-          <Text style={styles.dangerButtonIcon}>🗑️</Text>
-          <Text style={styles.dangerButtonText}>Reset Wallet</Text>
-        </TouchableOpacity>
-        <Text style={styles.warningText}>
-          ⚠️ Development only - Deletes wallet and creates new one on restart
+        <Text style={styles.signOutHint}>
+          Your wallet will be safe. Sign back in anytime.
         </Text>
       </View>
 
@@ -224,6 +439,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
       <View style={styles.footer}>
         <Text style={styles.footerText}>CryptoPay v1.0.0</Text>
         <Text style={styles.footerSubtext}>Built with ❤️ for Web3</Text>
+        <Text style={styles.footerSubtext}>Polygon Amoy Testnet</Text>
       </View>
     </ScrollView>
   );
@@ -358,6 +574,58 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.primary,
   },
+  settingsCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    ...SHADOWS.sm,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.sm,
+  },
+  settingInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: SPACING.md,
+  },
+  settingIcon: {
+    fontSize: 24,
+  },
+  settingLabel: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '500',
+    color: COLORS.text,
+  },
+  settingDescription: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  settingArrow: {
+    fontSize: FONT_SIZES.lg,
+    color: COLORS.textSecondary,
+  },
+  settingDivider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginHorizontal: SPACING.sm,
+  },
+  networkStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  networkDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.success,
+  },
   dangerButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -474,5 +742,85 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  // Network Card Styles
+  networkCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    overflow: 'hidden',
+    ...SHADOWS.sm,
+  },
+  networkHeader: {
+    backgroundColor: COLORS.primary + '10',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  networkStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  networkDotActive: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.success,
+  },
+  networkStatusText: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.success,
+  },
+  networkDetails: {
+    padding: SPACING.lg,
+  },
+  networkRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
+  networkRowLast: {
+    borderBottomWidth: 0,
+  },
+  networkLabel: {
+    fontSize: FONT_SIZES.md,
+    color: COLORS.textSecondary,
+  },
+  networkValue: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  // Sign Out Button Styles
+  signOutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.error + '15',
+    borderWidth: 1,
+    borderColor: COLORS.error,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  signOutButtonIcon: {
+    fontSize: 20,
+  },
+  signOutButtonText: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+    color: COLORS.error,
+  },
+  signOutHint: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });
