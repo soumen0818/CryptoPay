@@ -76,3 +76,45 @@ export async function getTransactionReceipt(txHash: string) {
     return null;
   }
 }
+
+export async function waitForTransaction(
+  txHash: string,
+  confirmations: number = 1
+): Promise<ethers.TransactionReceipt | null> {
+  try {
+    console.log(`Waiting for transaction ${txHash}...`);
+    const receipt = await provider.waitForTransaction(txHash, confirmations);
+    return receipt;
+  } catch (error) {
+    console.error('Error waiting for transaction:', error);
+    return null;
+  }
+}
+
+export async function getTransactionStatus(txHash: string): Promise<'pending' | 'success' | 'failed' | 'unknown'> {
+  try {
+    const receipt = await provider.getTransactionReceipt(txHash);
+    
+    if (!receipt) {
+      // Check if transaction exists
+      const tx = await provider.getTransaction(txHash);
+      if (!tx) return 'unknown';
+      return 'pending';
+    }
+    
+    return receipt.status === 1 ? 'success' : 'failed';
+  } catch (error) {
+    console.error('Error getting transaction status:', error);
+    return 'unknown';
+  }
+}
+
+export async function getMaticBalance(address: string): Promise<string> {
+  try {
+    const balance = await provider.getBalance(address);
+    return ethers.formatEther(balance);
+  } catch (error) {
+    console.error('Error getting MATIC balance:', error);
+    return '0';
+  }
+}

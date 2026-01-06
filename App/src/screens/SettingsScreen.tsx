@@ -8,11 +8,14 @@ import {
   Linking,
   ScrollView,
   Share,
+  Platform,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { clearWallet } from '../services/wallet';
-import { COLORS, SPACING, FONT_SIZES, BLOCKCHAIN_CONFIG } from '../constants/config';
+import { isMerchant, getMerchantProfile } from '../services/merchant';
+import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS, BLOCKCHAIN_CONFIG } from '../constants/theme';
+import { Card, Button } from '../components';
 
 interface SettingsScreenProps {
   navigation: any;
@@ -20,15 +23,32 @@ interface SettingsScreenProps {
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
   const [walletAddress, setWalletAddress] = useState<string>('');
+  const [merchantStatus, setMerchantStatus] = useState<boolean>(false);
+  const [businessName, setBusinessName] = useState<string>('');
 
   useEffect(() => {
     loadWalletAddress();
+    checkMerchantStatus();
   }, []);
 
   const loadWalletAddress = async () => {
     const address = await AsyncStorage.getItem('wallet_address');
     if (address) {
       setWalletAddress(address);
+    }
+  };
+
+  const checkMerchantStatus = async () => {
+    const address = await AsyncStorage.getItem('wallet_address');
+    if (address) {
+      const isMerch = await isMerchant(address);
+      setMerchantStatus(isMerch);
+      if (isMerch) {
+        const profile = await getMerchantProfile(address);
+        if (profile) {
+          setBusinessName(profile.business_name);
+        }
+      }
     }
   };
 
@@ -121,6 +141,40 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
         </View>
       </View>
 
+      {/* Merchant Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Merchant</Text>
+        {merchantStatus ? (
+          <View style={styles.merchantCard}>
+            <View style={styles.merchantHeader}>
+              <Text style={styles.merchantBadge}>✓ Merchant Account</Text>
+              <Text style={styles.merchantName}>{businessName}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.merchantButton}
+              onPress={() => navigation.navigate('MerchantDashboard')}
+            >
+              <Text style={styles.merchantButtonIcon}>📊</Text>
+              <Text style={styles.merchantButtonText}>Open Dashboard</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.merchantPromo}>
+            <Text style={styles.merchantPromoIcon}>🏪</Text>
+            <Text style={styles.merchantPromoTitle}>Accept Payments</Text>
+            <Text style={styles.merchantPromoText}>
+              Become a merchant and start accepting CryptoPay payments
+            </Text>
+            <TouchableOpacity
+              style={styles.merchantPromoButton}
+              onPress={() => navigation.navigate('MerchantRegistration')}
+            >
+              <Text style={styles.merchantPromoButtonText}>Become a Merchant</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
       {/* Network Info */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Network</Text>
@@ -182,6 +236,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: SPACING.lg,
+    paddingTop: Platform.OS === 'ios' ? 50 : SPACING.lg,
   },
   header: {
     alignItems: 'center',
@@ -191,8 +246,8 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 80,
     height: 80,
-    borderRadius: 40,
-    backgroundColor: COLORS.primary + '20',
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: COLORS.primaryLight + '30',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: SPACING.md,
@@ -202,14 +257,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: FONT_SIZES.xxl,
-    fontWeight: 'bold',
-    color: COLORS.text,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
   },
   section: {
     marginBottom: SPACING.xl,
   },
   sectionTitle: {
-    fontSize: FONT_SIZES.md,
+    fontSize: FONT_SIZES.sm,
     fontWeight: '600',
     color: COLORS.textSecondary,
     marginBottom: SPACING.md,
@@ -217,20 +272,22 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   addressCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg,
+    ...SHADOWS.md,
   },
   addressLabel: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
     marginBottom: SPACING.xs,
+    fontWeight: '500',
   },
   address: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.text,
-    fontFamily: 'monospace',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '500',
+    color: COLORS.textPrimary,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     marginBottom: SPACING.md,
   },
   addressActions: {
@@ -244,7 +301,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: COLORS.background,
     padding: SPACING.sm,
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.sm,
     gap: SPACING.xs,
   },
   addressActionIcon: {
@@ -252,13 +309,14 @@ const styles = StyleSheet.create({
   },
   addressActionText: {
     fontSize: FONT_SIZES.sm,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     fontWeight: '500',
   },
   infoCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg,
+    ...SHADOWS.sm,
   },
   infoRow: {
     flexDirection: 'row',
@@ -266,7 +324,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: SPACING.sm,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: COLORS.borderLight,
   },
   infoLabel: {
     fontSize: FONT_SIZES.md,
@@ -274,7 +332,7 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: FONT_SIZES.md,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     fontWeight: '500',
     flex: 1,
     textAlign: 'right',
@@ -284,11 +342,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.primary + '20',
+    backgroundColor: COLORS.primaryLight + '20',
     borderWidth: 2,
     borderColor: COLORS.primary,
     padding: SPACING.md,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.md,
     gap: SPACING.sm,
     marginBottom: SPACING.md,
   },
@@ -304,11 +362,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FF3B3020',
+    backgroundColor: COLORS.errorBg,
     borderWidth: 2,
-    borderColor: '#FF3B30',
+    borderColor: COLORS.error,
     padding: SPACING.md,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.md,
     gap: SPACING.sm,
     marginBottom: SPACING.sm,
   },
@@ -318,7 +376,7 @@ const styles = StyleSheet.create({
   dangerButtonText: {
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
-    color: '#FF3B30',
+    color: COLORS.error,
   },
   warningText: {
     fontSize: FONT_SIZES.xs,
@@ -341,5 +399,80 @@ const styles = StyleSheet.create({
   footerSubtext: {
     fontSize: FONT_SIZES.xs,
     color: COLORS.textSecondary,
+  },
+  merchantCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.success,
+    ...SHADOWS.md,
+  },
+  merchantHeader: {
+    marginBottom: SPACING.md,
+  },
+  merchantBadge: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.success,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  merchantName: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    marginTop: SPACING.xs,
+  },
+  merchantButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    gap: SPACING.sm,
+  },
+  merchantButtonIcon: {
+    fontSize: 20,
+  },
+  merchantButtonText: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  merchantPromo: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.xl,
+    alignItems: 'center',
+    ...SHADOWS.sm,
+  },
+  merchantPromoIcon: {
+    fontSize: 48,
+    marginBottom: SPACING.md,
+  },
+  merchantPromoTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
+  },
+  merchantPromoText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginBottom: SPACING.lg,
+  },
+  merchantPromoButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  merchantPromoButtonText: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

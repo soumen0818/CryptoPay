@@ -17,7 +17,7 @@ interface OnboardingScreenProps {
 
 export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }) => {
   const handleGetStarted = () => {
-    navigation.navigate('CreatePIN');
+    navigation.navigate('PhoneVerification');
   };
 
   return (

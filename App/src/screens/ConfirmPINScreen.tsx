@@ -58,6 +58,9 @@ export const ConfirmPINScreen: React.FC<ConfirmPINScreenProps> = ({
       // Create wallet with PIN
       const walletAddress = await createWallet(originalPin);
 
+      // Store PIN for payment transactions
+      await AsyncStorage.setItem('user_pin', originalPin);
+
       // Save user to Supabase
       const { error: dbError } = await supabase.from('users').insert({
         wallet_address: walletAddress,

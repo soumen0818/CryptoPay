@@ -3,9 +3,9 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   Dimensions,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hasWallet } from '../services/wallet';
 import { COLORS, SPACING, FONT_SIZES } from '../constants/config';
 
@@ -30,10 +30,18 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ navigation }) => {
       console.log('Wallet exists:', walletExists);
       
       if (walletExists) {
-        // User has wallet, go to login
-        navigation.replace('Login');
+        // Check if phone is verified
+        const phoneVerified = await AsyncStorage.getItem('phone_number');
+        
+        if (!phoneVerified) {
+          // Existing wallet but no phone verification - show phone verification
+          navigation.replace('PhoneVerification');
+        } else {
+          // User has wallet and phone verified, go to login
+          navigation.replace('Login');
+        }
       } else {
-        // New user, show onboarding
+        // New user, show onboarding first
         navigation.replace('Onboarding');
       }
     } catch (error) {

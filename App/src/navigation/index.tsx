@@ -1,9 +1,11 @@
 import React from 'react';
+import { Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SplashScreen } from '../screens/SplashScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
+import { PhoneVerificationScreen } from '../screens/PhoneVerificationScreen';
 import { CreatePINScreen } from '../screens/CreatePINScreen';
 import { ConfirmPINScreen } from '../screens/ConfirmPINScreen';
 import { BiometricSetupScreen } from '../screens/BiometricSetupScreen';
@@ -13,11 +15,16 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import { ScanScreen } from '../screens/ScanScreen';
 import { PaymentConfirmScreen } from '../screens/PaymentConfirmScreen';
 import { QRGeneratorScreen } from '../screens/QRGeneratorScreen';
+import { TransactionHistoryScreen } from '../screens/TransactionHistoryScreen';
+import { MerchantRegistrationScreen } from '../screens/MerchantRegistrationScreen';
+import { MerchantDashboardScreen } from '../screens/MerchantDashboardScreen';
+import { MerchantQRGeneratorScreen } from '../screens/MerchantQRGeneratorScreen';
 import { PaymentQRData } from '../utils/qrCode';
 
 type RootStackParamList = {
   Splash: undefined;
   Onboarding: undefined;
+  PhoneVerification: undefined;
   CreatePIN: undefined;
   ConfirmPIN: { pin: string };
   BiometricSetup: undefined;
@@ -26,6 +33,10 @@ type RootStackParamList = {
   Scan: undefined;
   PaymentConfirm: { paymentData: PaymentQRData };
   QRGenerator: undefined;
+  TransactionHistory: undefined;
+  MerchantRegistration: undefined;
+  MerchantDashboard: undefined;
+  MerchantQRGenerator: undefined;
 };
 
 type MainTabsParamList = {
@@ -56,7 +67,7 @@ const MainTabs = () => (
       component={HomeScreen}
       options={{
         tabBarLabel: 'Home',
-        tabBarIcon: ({ color }) => <span style={{ fontSize: 24 }}>🏠</span>,
+        tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>🏠</Text>,
         headerTitle: 'CryptoPay',
       }}
     />
@@ -65,7 +76,7 @@ const MainTabs = () => (
       component={SettingsScreen}
       options={{
         tabBarLabel: 'Settings',
-        tabBarIcon: ({ color }) => <span style={{ fontSize: 24 }}>⚙️</span>,
+        tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>⚙️</Text>,
       }}
     />
   </Tab.Navigator>
@@ -82,6 +93,7 @@ export const Navigation = () => {
       >
         <Stack.Screen name="Splash" component={SplashScreen} />
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        <Stack.Screen name="PhoneVerification" component={PhoneVerificationScreen} />
         <Stack.Screen name="CreatePIN" component={CreatePINScreen} />
         <Stack.Screen name="ConfirmPIN" component={ConfirmPINScreen} />
         <Stack.Screen name="BiometricSetup" component={BiometricSetupScreen} />
@@ -101,6 +113,34 @@ export const Navigation = () => {
           options={{
             headerShown: true,
             headerTitle: 'QR Generator (Testing)',
+          }}
+        />
+        <Stack.Screen 
+          name="TransactionHistory" 
+          component={TransactionHistoryScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="MerchantRegistration" 
+          component={MerchantRegistrationScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="MerchantDashboard" 
+          component={MerchantDashboardScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="MerchantQRGenerator" 
+          component={MerchantQRGeneratorScreen}
+          options={{
+            headerShown: false,
           }}
         />
       </Stack.Navigator>

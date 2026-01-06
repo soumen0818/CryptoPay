@@ -6,11 +6,13 @@ import {
   TouchableOpacity,
   Alert,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { Camera, CameraView } from 'expo-camera';
 import { BarCodeScanner } from 'expo-barcode-scanner';
 import { parsePaymentQR, validatePaymentQR } from '../utils/qrCode';
-import { COLORS, SPACING, FONT_SIZES } from '../constants/config';
+import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from '../constants/theme';
+import { Button } from '../components';
 
 const { width } = Dimensions.get('window');
 const SCANNER_SIZE = width * 0.7;
@@ -139,15 +141,15 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   header: {
-    paddingTop: 60,
+    paddingTop: Platform.OS === 'ios' ? 60 : SPACING.xl,
     paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.md,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
   },
   headerText: {
     fontSize: FONT_SIZES.xl,
-    fontWeight: 'bold',
-    color: COLORS.card,
+    fontWeight: '600',
+    color: '#FFFFFF',
     textAlign: 'center',
   },
   overlay: {
@@ -168,63 +170,69 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 40,
     height: 40,
-    borderColor: COLORS.primary,
+    borderColor: '#FFFFFF',
   },
   cornerTopLeft: {
     top: 0,
     left: 0,
     borderTopWidth: 4,
     borderLeftWidth: 4,
+    borderTopLeftRadius: BORDER_RADIUS.md,
   },
   cornerTopRight: {
     top: 0,
     right: 0,
     borderTopWidth: 4,
     borderRightWidth: 4,
+    borderTopRightRadius: BORDER_RADIUS.md,
   },
   cornerBottomLeft: {
     bottom: 0,
     left: 0,
     borderBottomWidth: 4,
     borderLeftWidth: 4,
+    borderBottomLeftRadius: BORDER_RADIUS.md,
   },
   cornerBottomRight: {
     bottom: 0,
     right: 0,
     borderBottomWidth: 4,
     borderRightWidth: 4,
+    borderBottomRightRadius: BORDER_RADIUS.md,
   },
   footer: {
     paddingHorizontal: SPACING.lg,
-    paddingBottom: 60,
+    paddingBottom: Platform.OS === 'ios' ? 60 : SPACING.xl,
     paddingTop: SPACING.md,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     alignItems: 'center',
   },
   instruction: {
     fontSize: FONT_SIZES.md,
-    color: COLORS.card,
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: SPACING.md,
+    fontWeight: '500',
   },
   cancelButton: {
-    backgroundColor: COLORS.card + '30',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.md,
     borderWidth: 2,
-    borderColor: COLORS.card,
+    borderColor: '#FFFFFF',
   },
   cancelButtonText: {
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
-    color: COLORS.card,
+    color: '#FFFFFF',
   },
   message: {
     fontSize: FONT_SIZES.lg,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     marginBottom: SPACING.md,
     textAlign: 'center',
+    fontWeight: '600',
   },
   submessage: {
     fontSize: FONT_SIZES.md,
@@ -237,11 +245,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.md,
   },
   buttonText: {
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
-    color: COLORS.card,
+    color: '#FFFFFF',
   },
 });

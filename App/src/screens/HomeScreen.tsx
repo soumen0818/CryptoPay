@@ -7,13 +7,17 @@ import {
   ScrollView,
   RefreshControl,
   Alert,
-  ActivityIndicator,
+  Animated,
+  Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ethers } from 'ethers';
+import { LinearGradient } from 'expo-linear-gradient';
 import { getWallet } from '../services/wallet';
 import { getProvider, getTokenContract } from '../services/blockchain';
-import { COLORS, SPACING, FONT_SIZES } from '../constants/config';
+import { startTransactionPolling, stopTransactionPolling } from '../services/transactionMonitor';
+import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS } from '../constants/theme';
+import { Card, Button, LoadingSpinner } from '../components';
 
 interface HomeScreenProps {
   navigation: any;
@@ -24,10 +28,34 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [walletAddress, setWalletAddress] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const fadeAnim = useState(new Animated.Value(0))[0];
+  const slideAnim = useState(new Animated.Value(50))[0];
 
   useEffect(() => {
     loadWalletData();
+    
+    // Entrance animation
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    
+    // Start background polling for pending transactions
+    startTransactionPolling(15000); // Poll every 15 seconds
+    
+    // Cleanup on unmount
+    return () => {
+      stopTransactionPolling();
+    };
   }, []);
 
   const loadWalletData = async () => {
@@ -108,10 +136,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   if (loading && !walletAddress) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading wallet...</Text>
-      </View>
+      <LoadingSpinner fullScreen text="Loading your wallet..." />
     );
   }
 
@@ -124,57 +149,147 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           refreshing={refreshing}
           onRefresh={handleRefresh}
           colors={[COLORS.primary]}
+          tintColor={COLORS.primary}
         />
       }
+      showsVerticalScrollIndicator={false}
     >
-      {/* Balance Card */}
-      <View style={styles.balanceCard}>
-        <Text style={styles.balanceLabel}>Total Balance</Text>
-        <Text style={styles.balanceAmount}>{balance} PAY</Text>
-        <Text style={styles.walletAddressPreview}>
-          {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
-        </Text>
-      </View>
-
-      {/* Action Buttons */}
-      <View style={styles.actionsContainer}>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.primaryAction]}
-          onPress={handleScanToPay}
+      {/* Balance Card with Gradient */}
+      <Animated.View
+        style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}
+      >
+        <LinearGradient
+          colors={[COLORS.primary, COLORS.primaryLight]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.balanceCard}
         >
-          <Text style={styles.actionIcon}>📷</Text>
-          <Text style={styles.actionButtonText}>Scan to Pay</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionButton, styles.secondaryAction]}
-          onPress={handleRequestTokens}
-        >
-          <Text style={styles.actionIcon}>💰</Text>
-          <Text style={[styles.actionButtonText, styles.secondaryActionText]}>
-            Request Tokens
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Recent Transactions */}
-      <View style={styles.transactionsSection}>
-        <Text style={styles.sectionTitle}>Recent Transactions</Text>
-        {transactions.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateIcon}>📭</Text>
-            <Text style={styles.emptyStateText}>No transactions yet</Text>
-            <Text style={styles.emptyStateSubtext}>
-              Request tokens or receive a payment to get started
-            </Text>
+          <View style={styles.balanceHeader}>
+            <Text style={styles.balanceLabel}>Available Balance</Text>
+            <TouchableOpacity style={styles.eyeIcon}>
+              <Text style={styles.eyeIconText}>👁️</Text>
+            </TouchableOpacity>
           </View>
-        ) : (
-          transactions.map((tx, index) => (
-            <View key={index} style={styles.transactionItem}>
-              <Text>{tx.type}</Text>
+          
+          <Text style={styles.balanceAmount}>{balance}</Text>
+          <Text style={styles.balanceCurrency}>PAY</Text>
+          
+          <View style={styles.walletAddressContainer}>
+            <View style={styles.walletAddressBadge}>
+              <Text style={styles.walletAddressText}>
+                {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+              </Text>
             </View>
-          ))
-        )}
+          </View>
+        </LinearGradient>
+      </Animated.View>
+
+      {/* Quick Actions */}
+      <View style={styles.quickActions}>
+        <TouchableOpacity
+          style={styles.actionCard}
+          onPress={handleScanToPay}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.actionIconContainer, { backgroundColor: COLORS.primaryLight + '20' }]}>
+            <Text style={styles.actionEmoji}>📷</Text>
+          </View>
+          <Text style={styles.actionTitle}>Scan QR</Text>
+          <Text style={styles.actionSubtitle}>Pay instantly</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionCard}
+          onPress={() => navigation.navigate('TransactionHistory')}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.actionIconContainer, { backgroundColor: COLORS.info + '20' }]}>
+            <Text style={styles.actionEmoji}>📊</Text>
+          </View>
+          <Text style={styles.actionTitle}>History</Text>
+          <Text style={styles.actionSubtitle}>View all</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionCard}
+          onPress={handleRequestTokens}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.actionIconContainer, { backgroundColor: COLORS.success + '20' }]}>
+            <Text style={styles.actionEmoji}>💰</Text>
+          </View>
+          <Text style={styles.actionTitle}>Faucet</Text>
+          <Text style={styles.actionSubtitle}>Get tokens</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionCard}
+          onPress={() => navigation.navigate('Settings')}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.actionIconContainer, { backgroundColor: COLORS.textSecondary + '20' }]}>
+            <Text style={styles.actionEmoji}>⚙️</Text>
+          </View>
+          <Text style={styles.actionTitle}>Settings</Text>
+          <Text style={styles.actionSubtitle}>Manage</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Features Section */}
+      <View style={styles.featuresSection}>
+        <Text style={styles.sectionTitle}>Quick Access</Text>
+        
+        <TouchableOpacity
+          style={styles.featureCard}
+          onPress={() => navigation.navigate('MerchantRegistration')}
+          activeOpacity={0.7}
+        >
+          <View style={styles.featureContent}>
+            <View style={[styles.featureIcon, { backgroundColor: COLORS.warning + '15' }]}>
+              <Text style={styles.featureEmoji}>🏪</Text>
+            </View>
+            <View style={styles.featureText}>
+              <Text style={styles.featureTitle}>Become a Merchant</Text>
+              <Text style={styles.featureDescription}>
+                Accept payments for your business
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.featureArrow}>→</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.featureCard}
+          onPress={() => Alert.alert('Coming Soon', 'Refer friends and earn rewards!')}
+          activeOpacity={0.7}
+        >
+          <View style={styles.featureContent}>
+            <View style={[styles.featureIcon, { backgroundColor: COLORS.secondary + '15' }]}>
+              <Text style={styles.featureEmoji}>🎁</Text>
+            </View>
+            <View style={styles.featureText}>
+              <Text style={styles.featureTitle}>Refer & Earn</Text>
+              <Text style={styles.featureDescription}>
+                Share CryptoPay with friends
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.featureArrow}>→</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Info Banner */}
+      <View style={styles.infoBanner}>
+        <Text style={styles.infoBannerIcon}>ℹ️</Text>
+        <View style={styles.infoBannerContent}>
+          <Text style={styles.infoBannerTitle}>Running on Testnet</Text>
+          <Text style={styles.infoBannerText}>
+            Polygon Amoy • Free to use • No real money
+          </Text>
+        </View>
       </View>
     </ScrollView>
   );
@@ -187,116 +302,179 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: SPACING.lg,
+    paddingTop: Platform.OS === 'ios' ? SPACING.xl : SPACING.lg,
   },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingText: {
-    marginTop: SPACING.md,
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-  },
+  
+  // Balance Card
   balanceCard: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 20,
-    padding: SPACING.xl,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.xxl,
+    marginBottom: SPACING.xl,
+    ...SHADOWS.lg,
+  },
+  balanceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    marginBottom: SPACING.md,
   },
   balanceLabel: {
     fontSize: FONT_SIZES.sm,
-    color: COLORS.card + 'CC',
-    marginBottom: SPACING.xs,
+    color: COLORS.textInverse,
+    opacity: 0.9,
+    fontWeight: '500',
+  },
+  eyeIcon: {
+    padding: SPACING.xs,
+  },
+  eyeIconText: {
+    fontSize: 20,
   },
   balanceAmount: {
-    fontSize: FONT_SIZES.xxl * 1.5,
-    fontWeight: 'bold',
-    color: COLORS.card,
-    marginBottom: SPACING.sm,
+    fontSize: 48,
+    fontWeight: '700',
+    color: COLORS.textInverse,
+    marginBottom: SPACING.xxs,
   },
-  walletAddressPreview: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.card + 'AA',
-    fontFamily: 'monospace',
+  balanceCurrency: {
+    fontSize: FONT_SIZES.lg,
+    color: COLORS.textInverse,
+    opacity: 0.8,
+    fontWeight: '600',
+    marginBottom: SPACING.lg,
   },
-  actionsContainer: {
+  walletAddressContainer: {
+    alignItems: 'center',
+  },
+  walletAddressBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.full,
+    backdropFilter: 'blur(10px)',
+  },
+  walletAddressText: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textInverse,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontWeight: '600',
+  },
+
+  // Quick Actions
+  quickActions: {
     flexDirection: 'row',
     gap: SPACING.md,
     marginBottom: SPACING.xl,
   },
-  actionButton: {
+  actionCard: {
     flex: 1,
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg,
-    borderRadius: 16,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    ...SHADOWS.sm,
   },
-  primaryAction: {
-    backgroundColor: COLORS.primary,
+  actionIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: BORDER_RADIUS.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.sm,
   },
-  secondaryAction: {
-    backgroundColor: COLORS.card,
-    borderWidth: 2,
-    borderColor: COLORS.border,
+  actionEmoji: {
+    fontSize: 28,
   },
-  actionIcon: {
-    fontSize: 32,
-    marginBottom: SPACING.xs,
-  },
-  actionButtonText: {
-    fontSize: FONT_SIZES.md,
+  actionTitle: {
+    fontSize: FONT_SIZES.sm,
     fontWeight: '600',
-    color: COLORS.card,
-  },
-  secondaryActionText: {
     color: COLORS.text,
+    marginBottom: SPACING.xxs,
   },
-  transactionsSection: {
-    marginTop: SPACING.md,
+  actionSubtitle: {
+    fontSize: FONT_SIZES.xxs,
+    color: COLORS.textSecondary,
+  },
+
+  // Features Section
+  featuresSection: {
+    marginBottom: SPACING.xl,
   },
   sectionTitle: {
     fontSize: FONT_SIZES.lg,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: COLORS.text,
     marginBottom: SPACING.md,
   },
-  emptyState: {
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: SPACING.xl * 2,
+  featureCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.sm,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    ...SHADOWS.sm,
   },
-  emptyStateIcon: {
-    fontSize: 48,
-    marginBottom: SPACING.md,
+  featureContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
-  emptyStateText: {
-    fontSize: FONT_SIZES.lg,
+  featureIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: BORDER_RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+  },
+  featureEmoji: {
+    fontSize: 24,
+  },
+  featureText: {
+    flex: 1,
+  },
+  featureTitle: {
+    fontSize: FONT_SIZES.md,
     fontWeight: '600',
     color: COLORS.text,
-    marginBottom: SPACING.xs,
+    marginBottom: SPACING.xxs,
   },
-  emptyStateSubtext: {
-    fontSize: FONT_SIZES.sm,
+  featureDescription: {
+    fontSize: FONT_SIZES.xs,
     color: COLORS.textSecondary,
-    textAlign: 'center',
   },
-  transactionItem: {
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
-    padding: SPACING.md,
-    marginBottom: SPACING.sm,
+  featureArrow: {
+    fontSize: FONT_SIZES.xl,
+    color: COLORS.textTertiary,
+    marginLeft: SPACING.sm,
+  },
+
+  // Info Banner
+  infoBanner: {
+    backgroundColor: COLORS.infoBg,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  infoBannerIcon: {
+    fontSize: 24,
+    marginRight: SPACING.md,
+  },
+  infoBannerContent: {
+    flex: 1,
+  },
+  infoBannerTitle: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.infoDark,
+    marginBottom: SPACING.xxs,
+  },
+  infoBannerText: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
   },
 });

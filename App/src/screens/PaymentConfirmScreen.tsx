@@ -5,11 +5,17 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
-  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { PaymentQRData } from '../utils/qrCode';
 import { authenticateWithBiometric } from '../utils/biometric';
-import { COLORS, SPACING, FONT_SIZES } from '../constants/config';
+import { getWallet } from '../services/wallet';
+import { sendPayment } from '../services/blockchain';
+import { saveTransaction } from '../services/storage';
+import { monitorTransaction } from '../services/transactionMonitor';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS } from '../constants/theme';
+import { Button, Card, SuccessAnimation } from '../components';
 
 interface PaymentConfirmScreenProps {
   navigation: any;
@@ -26,12 +32,36 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
 }) => {
   const { paymentData } = route.params;
   const [loading, setLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const showSuccessAnimation = () => {
+    setShowSuccess(true);
+  };
+
+  const handleSuccessComplete = () => {
+    navigation.navigate('MainTabs', { screen: 'Home' });
+  };
+
+  const pollTransactionStatus = async (txHash: string, paymentData: PaymentQRData) => {
+    try {
+      console.log('🔄 Starting background transaction monitoring:', txHash);
+      
+      // Use the new transaction monitor service
+      // It will automatically update Supabase when status changes
+      // This triggers real-time updates in TransactionHistoryScreen!
+      await monitorTransaction(txHash);
+      
+      console.log('✅ Transaction monitoring complete');
+    } catch (error) {
+      console.error('Error monitoring transaction:', error);
+    }
+  };
 
   const handleConfirmPayment = async () => {
     try {
       setLoading(true);
 
-      // Authenticate with biometric
+      // Step 1: Biometric authentication
       const authenticated = await authenticateWithBiometric();
 
       if (!authenticated) {
@@ -40,21 +70,57 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
         return;
       }
 
-      // TODO: Implement actual payment transaction
-      // This will be done when we add transaction signing
-      Alert.alert(
-        'Coming Soon',
-        'Payment transaction signing will be implemented next. For now, the QR scanning works perfectly!',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.navigate('MainTabs', { screen: 'Home' }),
-          },
-        ]
+      // Step 2: Get stored PIN and retrieve wallet
+      const storedPin = await AsyncStorage.getItem('user_pin');
+      if (!storedPin) {
+        Alert.alert('Error', 'PIN not found. Please restart the app.');
+        setLoading(false);
+        return;
+      }
+
+      const wallet = await getWallet(storedPin);
+      if (!wallet) {
+        Alert.alert('Error', 'Failed to access wallet');
+        setLoading(false);
+        return;
+      }
+
+      // Step 3: Send payment transaction
+      const txHash = await sendPayment(
+        wallet,
+        paymentData.merchant,
+        paymentData.amount
       );
-    } catch (error) {
+
+      console.log('Transaction sent:', txHash);
+
+      // Step 4: Save transaction to local storage (pending state)
+      await saveTransaction({
+        tx_hash: txHash,
+        to_address: paymentData.merchant,
+        amount: paymentData.amount,
+        status: 'pending',
+        merchant_name: paymentData.name,
+      });
+
+      // Step 5: Show success animation (transaction sent, not confirmed yet)
+      showSuccessAnimation();
+
+      // Step 6: Background polling for transaction confirmation
+      pollTransactionStatus(txHash, paymentData);
+
+    } catch (error: any) {
       console.error('Payment error:', error);
-      Alert.alert('Error', 'Failed to process payment');
+      
+      // User-friendly error messages
+      let errorMessage = 'Failed to process payment';
+      if (error.message?.includes('insufficient funds')) {
+        errorMessage = 'Insufficient balance. Please use the faucet to get test tokens.';
+      } else if (error.message?.includes('user rejected')) {
+        errorMessage = 'Transaction rejected';
+      }
+      
+      Alert.alert('Payment Failed', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -72,7 +138,7 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
       </View>
 
       {/* Payment Details Card */}
-      <View style={styles.card}>
+      <Card variant="elevated" style={styles.card}>
         <View style={styles.merchantSection}>
           <Text style={styles.merchantLabel}>Pay to</Text>
           <Text style={styles.merchantName}>{paymentData.name}</Text>
@@ -100,32 +166,26 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
             </View>
           </>
         )}
-      </View>
+      </Card>
 
       {/* Action Buttons */}
       <View style={styles.actions}>
-        <TouchableOpacity
-          style={[styles.button, styles.cancelButton]}
+        <Button
+          title="Cancel"
           onPress={handleCancel}
+          variant="outline"
           disabled={loading}
-        >
-          <Text style={styles.cancelButtonText}>Cancel</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.button, styles.confirmButton]}
+          size="lg"
+        />
+        <Button
+          title="Pay Now"
           onPress={handleConfirmPayment}
+          variant="primary"
+          loading={loading}
           disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color={COLORS.card} />
-          ) : (
-            <>
-              <Text style={styles.confirmButtonIcon}>💳</Text>
-              <Text style={styles.confirmButtonText}>Pay Now</Text>
-            </>
-          )}
-        </TouchableOpacity>
+          size="lg"
+          icon="💳"
+        />
       </View>
 
       {/* Security Notice */}
@@ -135,6 +195,9 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
           Biometric authentication required to confirm payment
         </Text>
       </View>
+
+      {/* Success Animation Overlay */}
+      <SuccessAnimation visible={showSuccess} onComplete={handleSuccessComplete} />
     </View>
   );
 };
@@ -145,29 +208,22 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
-    paddingTop: 60,
+    paddingTop: Platform.OS === 'ios' ? 60 : SPACING.xl,
     paddingBottom: SPACING.lg,
     paddingHorizontal: SPACING.lg,
-    backgroundColor: COLORS.card,
+    backgroundColor: COLORS.surface,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
   title: {
     fontSize: FONT_SIZES.xxl,
-    fontWeight: 'bold',
-    color: COLORS.text,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
     textAlign: 'center',
   },
   card: {
     margin: SPACING.lg,
-    backgroundColor: COLORS.card,
-    borderRadius: 20,
     padding: SPACING.xl,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
   },
   merchantSection: {
     alignItems: 'center',
@@ -177,21 +233,22 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
     marginBottom: SPACING.xs,
+    fontWeight: '500',
   },
   merchantName: {
     fontSize: FONT_SIZES.xl,
-    fontWeight: 'bold',
-    color: COLORS.text,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
     marginBottom: SPACING.xs,
   },
   merchantAddress: {
     fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    fontFamily: 'monospace',
+    color: COLORS.textTertiary,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
   divider: {
     height: 1,
-    backgroundColor: COLORS.border,
+    backgroundColor: COLORS.borderLight,
     marginVertical: SPACING.lg,
   },
   amountSection: {
@@ -201,6 +258,7 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
     marginBottom: SPACING.sm,
+    fontWeight: '500',
   },
   amountContainer: {
     flexDirection: 'row',
@@ -208,8 +266,8 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   amountValue: {
-    fontSize: FONT_SIZES.xxl * 1.5,
-    fontWeight: 'bold',
+    fontSize: FONT_SIZES.xxxl + 4,
+    fontWeight: '700',
     color: COLORS.primary,
   },
   amountCurrency: {
@@ -224,10 +282,11 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
     marginBottom: SPACING.xs,
+    fontWeight: '500',
   },
   noteText: {
     fontSize: FONT_SIZES.md,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     textAlign: 'center',
   },
   actions: {
@@ -235,36 +294,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     gap: SPACING.md,
     marginTop: SPACING.xl,
-  },
-  button: {
-    flex: 1,
-    paddingVertical: SPACING.md,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: SPACING.xs,
-  },
-  cancelButton: {
-    backgroundColor: COLORS.card,
-    borderWidth: 2,
-    borderColor: COLORS.border,
-  },
-  cancelButtonText: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  confirmButton: {
-    backgroundColor: COLORS.primary,
-  },
-  confirmButtonIcon: {
-    fontSize: 20,
-  },
-  confirmButtonText: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
-    color: COLORS.card,
   },
   securityNotice: {
     flexDirection: 'row',

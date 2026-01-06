@@ -71,6 +71,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         const isValid = await verifyPin(newPin);
         
         if (isValid) {
+          // Store PIN for payment transactions
+          await AsyncStorage.setItem('user_pin', newPin);
           navigation.replace('MainTabs');
         } else {
           setError('Incorrect PIN');
