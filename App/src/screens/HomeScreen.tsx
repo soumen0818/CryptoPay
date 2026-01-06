@@ -162,27 +162,54 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         }}
       >
         <LinearGradient
-          colors={[COLORS.primary, COLORS.primaryLight]}
+          colors={[COLORS.primary, COLORS.primaryDark]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.balanceCard}
         >
+          {/* Decorative circles */}
+          <View style={styles.decorativeCircle1} />
+          <View style={styles.decorativeCircle2} />
+          
+          {/* Card Header */}
           <View style={styles.balanceHeader}>
-            <Text style={styles.balanceLabel}>Available Balance</Text>
-            <TouchableOpacity style={styles.eyeIcon}>
-              <Text style={styles.eyeIconText}>👁️</Text>
-            </TouchableOpacity>
+            <View style={styles.balanceLabelContainer}>
+              <Text style={styles.balanceIcon}>💰</Text>
+              <Text style={styles.balanceLabel}>Total Balance</Text>
+            </View>
+            <View style={styles.networkBadge}>
+              <View style={styles.networkDot} />
+              <Text style={styles.networkText}>Polygon</Text>
+            </View>
           </View>
           
-          <Text style={styles.balanceAmount}>{balance}</Text>
-          <Text style={styles.balanceCurrency}>PAY</Text>
+          {/* Balance Amount */}
+          <View style={styles.balanceAmountContainer}>
+            <Text style={styles.balanceAmount}>{balance}</Text>
+            <Text style={styles.balanceCurrency}>PAY</Text>
+          </View>
           
+          {/* Balance in INR (mock) */}
+          <Text style={styles.balanceUsd}>≈ ₹{(parseFloat(balance) * 0.85).toFixed(2)} INR</Text>
+          
+          {/* Wallet Address */}
           <View style={styles.walletAddressContainer}>
-            <View style={styles.walletAddressBadge}>
+            <TouchableOpacity 
+              style={styles.walletAddressBadge}
+              onPress={() => {
+                Alert.alert('Wallet Address', walletAddress, [
+                  { text: 'Copy', onPress: () => {} },
+                  { text: 'Close' }
+                ]);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.walletIcon}>🔗</Text>
               <Text style={styles.walletAddressText}>
                 {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
               </Text>
-            </View>
+              <Text style={styles.copyIcon}>📋</Text>
+            </TouchableOpacity>
           </View>
         </LinearGradient>
       </Animated.View>
@@ -198,7 +225,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <Text style={styles.actionEmoji}>📷</Text>
           </View>
           <Text style={styles.actionTitle}>Scan QR</Text>
-          <Text style={styles.actionSubtitle}>Pay instantly</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -210,7 +236,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <Text style={styles.actionEmoji}>📊</Text>
           </View>
           <Text style={styles.actionTitle}>History</Text>
-          <Text style={styles.actionSubtitle}>View all</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -222,19 +247,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <Text style={styles.actionEmoji}>💰</Text>
           </View>
           <Text style={styles.actionTitle}>Faucet</Text>
-          <Text style={styles.actionSubtitle}>Get tokens</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionCard}
-          onPress={() => navigation.navigate('Settings')}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.actionIconContainer, { backgroundColor: COLORS.textSecondary + '20' }]}>
-            <Text style={styles.actionEmoji}>⚙️</Text>
-          </View>
-          <Text style={styles.actionTitle}>Settings</Text>
-          <Text style={styles.actionSubtitle}>Manage</Text>
         </TouchableOpacity>
       </View>
 
@@ -302,56 +314,112 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: SPACING.lg,
-    paddingTop: Platform.OS === 'ios' ? SPACING.xl : SPACING.lg,
+    paddingTop: SPACING.md,
   },
-  
-  // Balance Card
   balanceCard: {
-    borderRadius: BORDER_RADIUS.xl,
-    padding: SPACING.xxl,
-    marginBottom: SPACING.xl,
+    borderRadius: 24,
+    padding: SPACING.lg,
+    marginBottom: SPACING.lg,
+    overflow: 'hidden',
+    position: 'relative',
     ...SHADOWS.lg,
+  },
+  decorativeCircle1: {
+    position: 'absolute',
+    top: -50,
+    right: -50,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  decorativeCircle2: {
+    position: 'absolute',
+    bottom: -30,
+    left: -30,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   balanceHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.lg,
+  },
+  balanceLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  balanceIcon: {
+    fontSize: 18,
   },
   balanceLabel: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.textInverse,
     opacity: 0.9,
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  eyeIcon: {
-    padding: SPACING.xs,
+  networkBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: 12,
+    gap: SPACING.xs,
   },
-  eyeIconText: {
-    fontSize: 20,
+  networkDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#00D68F',
+  },
+  networkText: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textInverse,
+    fontWeight: '600',
+  },
+  balanceAmountContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: SPACING.sm,
   },
   balanceAmount: {
     fontSize: 48,
     fontWeight: '700',
     color: COLORS.textInverse,
-    marginBottom: SPACING.xxs,
+    letterSpacing: -1,
   },
   balanceCurrency: {
     fontSize: FONT_SIZES.lg,
     color: COLORS.textInverse,
-    opacity: 0.8,
-    fontWeight: '600',
+    opacity: 0.85,
+    fontWeight: '700',
+  },
+  balanceUsd: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textInverse,
+    opacity: 0.7,
+    marginTop: SPACING.xs,
     marginBottom: SPACING.lg,
   },
   walletAddressContainer: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   walletAddressBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    borderRadius: BORDER_RADIUS.full,
-    backdropFilter: 'blur(10px)',
+    borderRadius: 20,
+    gap: SPACING.xs,
+  },
+  walletIcon: {
+    fontSize: 12,
   },
   walletAddressText: {
     fontSize: FONT_SIZES.xs,
@@ -359,45 +427,13 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     fontWeight: '600',
   },
-
-  // Quick Actions
-  quickActions: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-    marginBottom: SPACING.xl,
-  },
-  actionCard: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.lg,
-    alignItems: 'center',
-    ...SHADOWS.sm,
-  },
-  actionIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: BORDER_RADIUS.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACING.sm,
-  },
-  actionEmoji: {
-    fontSize: 28,
-  },
-  actionTitle: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.xxs,
-  },
-  actionSubtitle: {
-    fontSize: FONT_SIZES.xxs,
-    color: COLORS.textSecondary,
+  copyIcon: {
+    fontSize: 12,
+    opacity: 0.8,
   },
 
-  // Features Section
-  featuresSection: {
+  // Sections
+  actionsSection: {
     marginBottom: SPACING.xl,
   },
   sectionTitle: {
@@ -406,9 +442,44 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: SPACING.md,
   },
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: SPACING.sm,
+  },
+  actionCard: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: SPACING.md,
+    alignItems: 'center',
+    ...SHADOWS.sm,
+  },
+  actionIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.sm,
+  },
+  actionEmoji: {
+    fontSize: 24,
+  },
+  actionTitle: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: '600',
+    color: COLORS.text,
+    textAlign: 'center',
+  },
+
+  // Features Section
+  featuresSection: {
+    marginBottom: SPACING.lg,
+  },
   featureCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
+    borderRadius: 16,
     padding: SPACING.lg,
     marginBottom: SPACING.sm,
     flexDirection: 'row',
@@ -422,15 +493,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   featureIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: BORDER_RADIUS.md,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
   },
   featureEmoji: {
-    fontSize: 24,
+    fontSize: 22,
   },
   featureText: {
     flex: 1,
@@ -439,7 +510,7 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
     color: COLORS.text,
-    marginBottom: SPACING.xxs,
+    marginBottom: 2,
   },
   featureDescription: {
     fontSize: FONT_SIZES.xs,
@@ -454,15 +525,14 @@ const styles = StyleSheet.create({
   // Info Banner
   infoBanner: {
     backgroundColor: COLORS.infoBg,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.lg,
+    borderRadius: 12,
+    padding: SPACING.md,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: SPACING.lg,
   },
   infoBannerIcon: {
-    fontSize: 24,
-    marginRight: SPACING.md,
+    fontSize: 20,
+    marginRight: SPACING.sm,
   },
   infoBannerContent: {
     flex: 1,
@@ -471,7 +541,7 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     fontWeight: '600',
     color: COLORS.infoDark,
-    marginBottom: SPACING.xxs,
+    marginBottom: 2,
   },
   infoBannerText: {
     fontSize: FONT_SIZES.xs,
