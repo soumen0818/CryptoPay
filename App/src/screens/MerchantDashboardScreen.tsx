@@ -17,7 +17,9 @@ import {
   updateQRCodeStatus,
   type MerchantQRCode,
 } from '../services/merchant';
-import { COLORS, SPACING, FONT_SIZES } from '../constants/config';
+import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
+
+const FONT_SIZES = TYPOGRAPHY.sizes;
 
 interface MerchantDashboardScreenProps {
   navigation: any;
