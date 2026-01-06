@@ -7,12 +7,15 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PINInput } from '../components/PINInput';
 import { hasWallet, verifyPin } from '../services/wallet';
-import { authenticateForUnlock, isBiometricAvailable } from '../utils/biometric';
-import { COLORS, SPACING, FONT_SIZES } from '../constants/config';
+import { authenticateForUnlock, isBiometricAvailable, getBiometricType } from '../utils/biometric';
+import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
+
+const FONT_SIZES = TYPOGRAPHY.sizes;
 
 interface LoginScreenProps {
   navigation: any;
@@ -23,6 +26,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showBiometric, setShowBiometric] = useState(false);
+  const [biometricType, setBiometricType] = useState('Biometric');
 
   useEffect(() => {
     checkAndTriggerBiometric();
@@ -34,6 +38,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     
     if (biometricEnabled === 'true' && available) {
       setShowBiometric(true);
+      const type = await getBiometricType();
+      setBiometricType(type);
       // Auto-trigger biometric on screen load
       setTimeout(() => handleBiometricAuth(), 500);
     }
@@ -94,9 +100,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     >
       <View style={styles.content}>
         <View style={styles.header}>
-          <View style={styles.logo}>
-            <Text style={styles.logoText}>₿</Text>
-          </View>
+          <Image
+            source={require('../../assets/cpay_logo.jpg')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.title}>Welcome Back</Text>
           <Text style={styles.subtitle}>Enter your PIN to continue</Text>
         </View>
@@ -106,16 +114,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             value={pin}
             onChange={handlePINChange}
             error={error}
-            autoFocus
+            autoFocus={!showBiometric}
           />
         </View>
 
-        <TouchableOpacity
-          style={styles.biometricButton}
-          onPress={handleBiometricAuth}
-        >
-          <Text style={styles.biometricText}>🔐 Use Biometric</Text>
-        </TouchableOpacity>
+        {showBiometric && (
+          <TouchableOpacity
+            style={styles.biometricButton}
+            onPress={handleBiometricAuth}
+          >
+            <Text style={styles.biometricIcon}>
+              {biometricType.includes('Face') ? '😊' : '👆'}
+            </Text>
+            <Text style={styles.biometricText}>Use {biometricType}</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </KeyboardAvoidingView>
   );
@@ -136,17 +149,10 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xl * 2,
   },
   logo: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     marginBottom: SPACING.lg,
-  },
-  logoText: {
-    fontSize: 40,
-    color: COLORS.card,
   },
   title: {
     fontSize: FONT_SIZES.xxl,
@@ -162,12 +168,18 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xl,
   },
   biometricButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: SPACING.md,
+    gap: SPACING.sm,
+  },
+  biometricIcon: {
+    fontSize: 24,
   },
   biometricText: {
     fontSize: FONT_SIZES.md,
     color: COLORS.primary,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });
