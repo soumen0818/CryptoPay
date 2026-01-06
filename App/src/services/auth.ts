@@ -1,9 +1,98 @@
 import { supabase } from './supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Development mode: Read from environment variables
-const IS_DEV_MODE = process.env.EXPO_PUBLIC_DEV_MODE === 'true';
+// Development fallback credentials (always available)
 const DEV_PHONE_NUMBER = process.env.EXPO_PUBLIC_DEV_PHONE || '+911234567890';
 const DEV_OTP = process.env.EXPO_PUBLIC_DEV_OTP || '123456';
+
+// Rate limiting constants
+const MAX_OTP_ATTEMPTS_PER_DAY = 3;
+const OTP_RATE_LIMIT_KEY = 'otp_rate_limit';
+
+interface OTPRateLimit {
+  attempts: number;
+  lastAttempt: string; // ISO date string
+  resetDate: string; // ISO date string
+}
+
+/**
+ * Check if user has exceeded OTP rate limit
+ */
+async function checkRateLimit(): Promise<{
+  allowed: boolean;
+  remainingAttempts: number;
+  resetTime?: Date;
+}> {
+  try {
+    const rateLimitData = await AsyncStorage.getItem(OTP_RATE_LIMIT_KEY);
+    const now = new Date();
+    
+    if (!rateLimitData) {
+      return { allowed: true, remainingAttempts: MAX_OTP_ATTEMPTS_PER_DAY };
+    }
+
+    const rateLimit: OTPRateLimit = JSON.parse(rateLimitData);
+    const resetDate = new Date(rateLimit.resetDate);
+
+    // Check if we need to reset (new day)
+    if (now >= resetDate) {
+      await AsyncStorage.removeItem(OTP_RATE_LIMIT_KEY);
+      return { allowed: true, remainingAttempts: MAX_OTP_ATTEMPTS_PER_DAY };
+    }
+
+    // Check if limit exceeded
+    if (rateLimit.attempts >= MAX_OTP_ATTEMPTS_PER_DAY) {
+      return {
+        allowed: false,
+        remainingAttempts: 0,
+        resetTime: resetDate,
+      };
+    }
+
+    return {
+      allowed: true,
+      remainingAttempts: MAX_OTP_ATTEMPTS_PER_DAY - rateLimit.attempts,
+    };
+  } catch (error) {
+    console.error('Error checking rate limit:', error);
+    return { allowed: true, remainingAttempts: MAX_OTP_ATTEMPTS_PER_DAY };
+  }
+}
+
+/**
+ * Increment OTP attempt counter
+ */
+async function incrementAttempt(): Promise<void> {
+  try {
+    const rateLimitData = await AsyncStorage.getItem(OTP_RATE_LIMIT_KEY);
+    const now = new Date();
+    
+    // Calculate reset time (midnight of next day)
+    const resetDate = new Date(now);
+    resetDate.setHours(24, 0, 0, 0);
+
+    let rateLimit: OTPRateLimit;
+
+    if (!rateLimitData) {
+      rateLimit = {
+        attempts: 1,
+        lastAttempt: now.toISOString(),
+        resetDate: resetDate.toISOString(),
+      };
+    } else {
+      const existing: OTPRateLimit = JSON.parse(rateLimitData);
+      rateLimit = {
+        attempts: existing.attempts + 1,
+        lastAttempt: now.toISOString(),
+        resetDate: existing.resetDate,
+      };
+    }
+
+    await AsyncStorage.setItem(OTP_RATE_LIMIT_KEY, JSON.stringify(rateLimit));
+  } catch (error) {
+    console.error('Error incrementing attempt:', error);
+  }
+}
 
 /**
  * Send OTP to phone number using Supabase
@@ -12,14 +101,34 @@ export async function sendOTP(phoneNumber: string): Promise<{
   success: boolean;
   verificationId?: string;
   error?: string;
+  remainingAttempts?: number;
+  resetTime?: Date;
 }> {
   try {
-    // Development mode bypass
-    if (IS_DEV_MODE && phoneNumber === DEV_PHONE_NUMBER) {
-      console.log('DEV MODE: Bypassing Supabase OTP');
+    // Check rate limit first
+    const rateLimitCheck = await checkRateLimit();
+    
+    if (!rateLimitCheck.allowed) {
+      const resetTime = rateLimitCheck.resetTime!;
+      const hours = Math.ceil((resetTime.getTime() - Date.now()) / (1000 * 60 * 60));
+      return {
+        success: false,
+        error: `Too many OTP requests. Please try again in ${hours} hour${hours > 1 ? 's' : ''}.`,
+        remainingAttempts: 0,
+        resetTime: resetTime,
+      };
+    }
+
+    // Development fallback (always check, but don't skip Supabase)
+    const isDevPhone = phoneNumber === DEV_PHONE_NUMBER;
+    
+    if (isDevPhone) {
+      console.log('🔧 Development phone detected - using fallback OTP');
+      await incrementAttempt();
       return {
         success: true,
         verificationId: 'dev-verification-id',
+        remainingAttempts: rateLimitCheck.remainingAttempts - 1,
       };
     }
 
@@ -32,12 +141,17 @@ export async function sendOTP(phoneNumber: string): Promise<{
       return {
         success: false,
         error: error.message,
+        remainingAttempts: rateLimitCheck.remainingAttempts,
       };
     }
+
+    // Increment attempt after successful send
+    await incrementAttempt();
 
     return {
       success: true,
       verificationId: phoneNumber, // Supabase uses phone number as identifier
+      remainingAttempts: rateLimitCheck.remainingAttempts - 1,
     };
   } catch (error: any) {
     console.error('Send OTP error:', error);
@@ -60,10 +174,10 @@ export async function verifyOTP(
   error?: string;
 }> {
   try {
-    // Development mode bypass
-    if (IS_DEV_MODE && verificationId === 'dev-verification-id') {
+    // Development fallback
+    if (verificationId === 'dev-verification-id') {
       if (otpCode === DEV_OTP) {
-        console.log('DEV MODE: OTP verified successfully');
+        console.log('🔧 Development OTP verified successfully');
         return {
           success: true,
           phoneNumber: DEV_PHONE_NUMBER,
@@ -71,7 +185,7 @@ export async function verifyOTP(
       } else {
         return {
           success: false,
-          error: 'Invalid OTP. Use 123456 for dev mode.',
+          error: `Invalid OTP. ${DEV_OTP ? 'Check your dev credentials.' : ''}`,
         };
       }
     }
@@ -104,6 +218,20 @@ export async function verifyOTP(
 }
 
 /**
+ * Get remaining OTP attempts for the day
+ */
+export async function getRemainingAttempts(): Promise<{
+  remaining: number;
+  resetTime?: Date;
+}> {
+  const rateLimitCheck = await checkRateLimit();
+  return {
+    remaining: rateLimitCheck.remainingAttempts,
+    resetTime: rateLimitCheck.resetTime,
+  };
+}
+
+/**
  * Sign out from Supabase
  */
 export async function signOut(): Promise<void> {
@@ -111,21 +239,14 @@ export async function signOut(): Promise<void> {
 }
 
 /**
- * Check if dev mode is enabled
- */
-export function isDevMode(): boolean {
-  return IS_DEV_MODE;
-}
-
-/**
- * Get dev phone number
+ * Get dev phone number (for UI hints only)
  */
 export function getDevPhoneNumber(): string {
   return DEV_PHONE_NUMBER;
 }
 
 /**
- * Get dev OTP
+ * Get dev OTP (for UI hints only)
  */
 export function getDevOTP(): string {
   return DEV_OTP;
