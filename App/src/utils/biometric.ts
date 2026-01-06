@@ -28,6 +28,7 @@ export async function getBiometricType(): Promise<string> {
 
 /**
  * Authenticate user with biometric (for payment confirmation)
+ * Falls back to device credentials (PIN/pattern) if biometric is not available
  */
 export async function authenticateWithBiometric(): Promise<boolean> {
   const hasHardware = await LocalAuthentication.hasHardwareAsync();
@@ -35,8 +36,9 @@ export async function authenticateWithBiometric(): Promise<boolean> {
 
   const result = await LocalAuthentication.authenticateAsync({
     promptMessage: 'Confirm Payment',
-    fallbackLabel: 'Use PIN',
+    fallbackLabel: 'Use Device Credentials',
     cancelLabel: 'Cancel',
+    disableDeviceFallback: false, // Allow device PIN/pattern
   });
 
   return result.success;
@@ -44,15 +46,17 @@ export async function authenticateWithBiometric(): Promise<boolean> {
 
 /**
  * Authenticate user for unlocking wallet
+ * Falls back to device credentials (PIN/pattern) if biometric is not enrolled
  */
 export async function authenticateForUnlock(): Promise<boolean> {
   const hasHardware = await LocalAuthentication.hasHardwareAsync();
-  if (!hasHardware) return false; // Must use PIN if biometric unavailable
-
+  
+  // Allow device credentials even if no biometric hardware
   const result = await LocalAuthentication.authenticateAsync({
     promptMessage: 'Unlock your wallet',
-    fallbackLabel: 'Use PIN',
+    fallbackLabel: 'Use Device Credentials',
     cancelLabel: 'Cancel',
+    disableDeviceFallback: false, // Allow device PIN/pattern
   });
 
   return result.success;
@@ -60,13 +64,15 @@ export async function authenticateForUnlock(): Promise<boolean> {
 
 /**
  * Enable biometric authentication (setup flow)
+ * Falls back to device credentials if biometric is not available
  */
 export async function enableBiometric(): Promise<boolean> {
   try {
     const result = await LocalAuthentication.authenticateAsync({
       promptMessage: 'Enable biometric authentication',
-      fallbackLabel: 'Use PIN instead',
+      fallbackLabel: 'Use Device Credentials',
       cancelLabel: 'Cancel',
+      disableDeviceFallback: false, // Allow device PIN/pattern
     });
 
     return result.success;
