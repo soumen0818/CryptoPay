@@ -26,10 +26,19 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation }) => {
   const [scanned, setScanned] = useState(false);
 
   useEffect(() => {
-    requestCameraPermission();
+    checkCameraPermission();
   }, []);
 
-  const requestCameraPermission = async () => {
+  const checkCameraPermission = async () => {
+    // First check if permission is already granted
+    const { status: existingStatus } = await Camera.getCameraPermissionsAsync();
+    
+    if (existingStatus === 'granted') {
+      setHasPermission(true);
+      return;
+    }
+    
+    // Only request if not already granted
     const { status } = await Camera.requestCameraPermissionsAsync();
     setHasPermission(status === 'granted');
   };
