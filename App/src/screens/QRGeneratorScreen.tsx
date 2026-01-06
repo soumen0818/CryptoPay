@@ -9,7 +9,9 @@ import {
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { generatePaymentQR } from '../utils/qrCode';
-import { COLORS, SPACING, FONT_SIZES } from '../constants/config';
+import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
+
+const FONT_SIZES = TYPOGRAPHY.sizes;
 
 interface QRGeneratorScreenProps {
   navigation: any;
