@@ -21,7 +21,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "crypto.pay"
     },
     "web": {
       "favicon": "./assets/favicon.png"
