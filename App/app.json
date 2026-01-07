@@ -4,11 +4,10 @@
     "slug": "cryptopay",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/cpay_logo.jpg",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "splash": {
-      "image": "./assets/cpay_logo.jpg",
+      "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#6366f1"
     },
@@ -23,10 +22,9 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/cpay_logo.jpg",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#6366f1"
       },
-      "edgeToEdgeEnabled": true,
       "package": "com.cryptopay.app",
       "versionCode": 1,
       "permissions": [
@@ -41,7 +39,7 @@
       ]
     },
     "web": {
-      "favicon": "./assets/cpay_logo.jpg"
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-secure-store",

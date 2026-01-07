@@ -9,7 +9,6 @@ import {
   Platform,
 } from 'react-native';
 import { Camera, CameraView } from 'expo-camera';
-import { BarCodeScanner } from 'expo-barcode-scanner';
 import { parsePaymentQR, validatePaymentQR } from '../utils/qrCode';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from '../constants/theme';
 import { Button } from '../components';
