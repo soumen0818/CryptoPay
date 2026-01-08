@@ -20,7 +20,13 @@ async function main() {
   // Deploy contract
   console.log("⏳ Deploying contract...");
   const PayToken = await hre.ethers.getContractFactory("PayToken");
-  const payToken = await PayToken.deploy();
+  
+  // Path B - Advanced: Pass relayer address to constructor
+  // For initial deployment, deployer acts as relayer (can be changed later with setRelayer)
+  const relayerAddress = deployer.address;
+  console.log("🔐 Setting initial relayer:", relayerAddress);
+  
+  const payToken = await PayToken.deploy(relayerAddress);
 
   await payToken.waitForDeployment();
   const address = await payToken.getAddress();
@@ -43,11 +49,19 @@ async function main() {
   console.log("🌐 Explorer:", `https://amoy.polygonscan.com/address/${address}`);
   
   console.log("\n📋 Next Steps:");
-  console.log("1. Update Frontend/.env file:");
+  console.log("1. Update App/.env file:");
   console.log(`   EXPO_PUBLIC_TOKEN_ADDRESS=${address}`);
-  console.log("\n2. Verify contract (optional):");
-  console.log(`   npx hardhat verify --network amoy ${address}`);
-  console.log("\n3. Test the faucet function from any wallet to get free tokens!");
+  console.log("\n2. Update relayer-service/.env file:");
+  console.log(`   PAY_TOKEN_ADDRESS=${address}`);
+  console.log(`   RELAYER_PRIVATE_KEY=<your_relayer_wallet_private_key>`);
+  console.log("\n3. Update relayer address in contract (if using different wallet):");
+  console.log(`   await contract.setRelayer("0xNEW_RELAYER_ADDRESS")`);
+  console.log("\n4. Verify contract (optional):");
+  console.log(`   npx hardhat verify --network amoy ${address} "${relayerAddress}"`);
+  console.log("\n5. Fund relayer wallet with MATIC for gas fees!");
+  console.log("\n6. Start relayer service:");
+  console.log("   cd relayer-service && npm start");
+  console.log("\n✅ Gasless payments (Path B - Advanced) are now enabled!");
 }
 
 main()
