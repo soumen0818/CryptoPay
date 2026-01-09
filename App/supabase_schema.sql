@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS users (
     wallet_address TEXT UNIQUE NOT NULL,
     pin_hash TEXT,
     biometric_enabled BOOLEAN DEFAULT FALSE,
+    profile_photo_url TEXT, -- User profile photo URL
+    display_name TEXT, -- Optional display name
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
