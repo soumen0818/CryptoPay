@@ -29,7 +29,25 @@ CREATE TABLE IF NOT EXISTS transactions (
             'failed'
         )
     ),
+    -- Phase 2: Invisible Rail - Two-tier status system
+    internal_status TEXT DEFAULT 'processing' CHECK (
+        internal_status IN (
+            'processing', -- User just submitted, blockchain tx not sent yet
+            'submitted', -- Blockchain tx sent, waiting for confirmation
+            'confirmed', -- Blockchain confirmed the transaction
+            'failed' -- Transaction failed at any stage
+        )
+    ),
+    user_visible_status TEXT DEFAULT 'success' CHECK (
+        user_visible_status IN (
+            'success', -- Show to user as successful (optimistic UX)
+            'failed' -- Show to user as failed
+        )
+    ),
+    failure_reason TEXT, -- User-friendly error message if failed
     merchant_name TEXT,
+    submitted_at TIMESTAMP DEFAULT NOW(), -- When user clicked "Pay"
+    confirmed_at TIMESTAMP, -- When blockchain confirmed (NULL if not confirmed)
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
