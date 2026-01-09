@@ -8,10 +8,11 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4 (),
     wallet_address TEXT UNIQUE NOT NULL,
+    phone_number TEXT UNIQUE, -- User's phone number for login
     pin_hash TEXT,
     biometric_enabled BOOLEAN DEFAULT FALSE,
     profile_photo_url TEXT, -- User profile photo URL
-    display_name TEXT, -- Optional display name
+    display_name TEXT, -- User's full name (required during signup)
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
