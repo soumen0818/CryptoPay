@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback, memo } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,7 @@ interface PINInputProps {
   autoFocus?: boolean;
 }
 
-export const PINInput: React.FC<PINInputProps> = ({
+export const PINInput: React.FC<PINInputProps> = memo(({
   value,
   onChange,
   error,
@@ -29,31 +29,53 @@ export const PINInput: React.FC<PINInputProps> = ({
 }) => {
   const inputRefs = useRef<(TextInput | null)[]>([]);
 
-  const handleChange = (text: string, index: number) => {
+  const handleChange = useCallback((text: string, index: number) => {
     // Only allow numbers
     if (text && !/^\d+$/.test(text)) return;
 
     const newPin = value.split('');
-    newPin[index] = text;
+    
+    // If text is empty, clear current digit
+    if (text === '') {
+      newPin[index] = '';
+      onChange(newPin.join(''));
+      return;
+    }
+    
+    // Take only the last character if multiple characters are entered
+    const lastChar = text.slice(-1);
+    newPin[index] = lastChar;
     const updatedPin = newPin.join('');
 
     onChange(updatedPin);
 
     // Auto-focus next input
-    if (text && index < PIN_LENGTH - 1) {
+    if (lastChar && index < PIN_LENGTH - 1) {
       inputRefs.current[index + 1]?.focus();
     }
-  };
+  }, [value, onChange]);
 
-  const handleKeyPress = (e: any, index: number) => {
-    if (e.nativeEvent.key === 'Backspace' && !value[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
+  const handleKeyPress = useCallback((e: any, index: number) => {
+    if (e.nativeEvent.key === 'Backspace') {
+      const newPin = value.split('');
+      
+      // If current box has a digit, clear it
+      if (value[index]) {
+        newPin[index] = '';
+        onChange(newPin.join(''));
+      } 
+      // If current box is empty, move to previous box and clear it
+      else if (index > 0) {
+        newPin[index - 1] = '';
+        onChange(newPin.join(''));
+        inputRefs.current[index - 1]?.focus();
+      }
     }
-  };
+  }, [value, onChange]);
 
-  const handleBoxPress = (index: number) => {
+  const handleBoxPress = useCallback((index: number) => {
     inputRefs.current[index]?.focus();
-  };
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -88,7 +110,7 @@ export const PINInput: React.FC<PINInputProps> = ({
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

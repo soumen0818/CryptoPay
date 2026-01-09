@@ -9,15 +9,19 @@ import {
   Alert,
   Animated,
   Platform,
+  FlatList,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ethers } from 'ethers';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 import { getWallet } from '../services/wallet';
-import { getProvider, getTokenContract } from '../services/blockchain';
+import { getProvider, getTokenContract, claimFromFaucet } from '../services/blockchain';
 import { startTransactionPolling, stopTransactionPolling } from '../services/transactionMonitor';
+import { authenticateWithBiometric, authenticateWithPIN } from '../utils/biometric';
+import { getTransactions, Transaction } from '../services/storage';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS } from '../constants/theme';
-import { Card, Button, LoadingSpinner } from '../components';
+import { Card, Button, LoadingSpinner, EmptyState, TransactionItem } from '../components';
 
 interface HomeScreenProps {
   navigation: any;
@@ -28,6 +32,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [walletAddress, setWalletAddress] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const fadeAnim = useState(new Animated.Value(0))[0];
   const slideAnim = useState(new Animated.Value(50))[0];
 
@@ -58,6 +63,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     };
   }, []);
 
+  // Refresh transactions when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🔄 HomeScreen focused - refreshing transactions');
+      loadTransactions();
+      if (walletAddress) {
+        loadBalance(walletAddress);
+      }
+    }, [walletAddress])
+  );
+
   const loadWalletData = async () => {
     try {
       const address = await AsyncStorage.getItem('wallet_address');
@@ -86,10 +102,27 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }
   };
 
+  const loadTransactions = async () => {
+    try {
+      const txs = await getTransactions();
+      // Get last 5 transactions
+      setTransactions(txs.slice(0, 5));
+    } catch (error) {
+      console.error('Error loading transactions:', error);
+    }
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadBalance(walletAddress);
+    await Promise.all([
+      loadBalance(walletAddress),
+      loadTransactions(),
+    ]);
     setRefreshing(false);
+  };
+
+  const handleSendMoney = () => {
+    navigation.navigate('SendMoney');
   };
 
   const handleRequestTokens = async () => {
@@ -97,30 +130,119 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
     Alert.alert(
       'Request Tokens',
-      'Get free PAY tokens from the faucet?',
+      'Get 100 free PAY tokens from the faucet?\n\n⏱️ One claim every 24 hours\n\n✨ Completely gasless - no MATIC needed!',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Request',
+          text: 'Claim Tokens',
           onPress: async () => {
             try {
               setLoading(true);
-              const provider = getProvider();
-              const tokenContract = getTokenContract(provider);
-
-              // Check cooldown
-              const canClaim = await tokenContract.canClaimFaucet(walletAddress);
-              if (!canClaim) {
-                const timeLeft = await tokenContract.timeUntilNextClaim(walletAddress);
-                const hours = Math.floor(Number(timeLeft) / 3600);
-                Alert.alert('Cooldown Active', `Wait ${hours} hours before claiming again`);
+              
+              // Try biometric first, fallback to PIN if not available
+              let authenticated = await authenticateWithBiometric();
+              
+              if (!authenticated) {
+                // Biometric not available or failed, use PIN
+                authenticated = await authenticateWithPIN();
+              }
+              
+              if (!authenticated) {
+                setLoading(false);
+                Alert.alert('Authentication Failed', 'You must authenticate to claim tokens');
                 return;
               }
 
-              Alert.alert('Coming Soon', 'Faucet claim will be implemented with transaction signing');
+              const storedPin = await AsyncStorage.getItem('user_pin');
+              
+              let userPin = storedPin;
+              
+              if (!storedPin) {
+                userPin = await new Promise<string | null>((resolve) => {
+                  Alert.prompt(
+                    'Enter PIN',
+                    'Please enter the 6-digit PIN you created when setting up your wallet',
+                    [
+                      { text: 'Cancel', onPress: () => resolve(null), style: 'cancel' },
+                      {
+                        text: 'OK',
+                        onPress: (pin?: string) => {
+                          if (pin && pin.length === 6) {
+                            resolve(pin);
+                          } else {
+                            Alert.alert('Invalid PIN', 'PIN must be 6 digits');
+                            resolve(null);
+                          }
+                        },
+                      },
+                    ],
+                    'plain-text',
+                    '',
+                    'numeric'
+                  );
+                });
+                
+                if (!userPin) {
+                  setLoading(false);
+                  return;
+                }
+
+                await AsyncStorage.setItem('user_pin', userPin);
+              }
+
+              const finalPin = userPin as string;
+
+              let wallet = await getWallet(finalPin);
+              if (!wallet) {
+                setLoading(false);
+                Alert.alert(
+                  'Authentication Failed',
+                  'Incorrect PIN. Please try again.',
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => {
+                        if (!storedPin) {
+                          AsyncStorage.removeItem('user_pin');
+                        }
+                      }
+                    }
+                  ]
+                );
+                return;
+              }
+
+              wallet = wallet.connect(getProvider());
+
+              const txHash = await claimFromFaucet(wallet);
+              
+              Alert.alert(
+                '✅ Success!',
+                '100 PAY tokens are being sent to your wallet.\n\nTransaction will confirm in ~5 seconds.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => {
+                      setTimeout(() => loadBalance(walletAddress), 6000);
+                    },
+                  },
+                ]
+              );
             } catch (error: any) {
               console.error('Faucet error:', error);
-              Alert.alert('Error', error.message || 'Failed to request tokens');
+              
+              let errorTitle = 'Faucet Error';
+              let errorMessage = error.message || 'Failed to claim tokens';
+              
+              if (error.message?.includes('wait 24 hours')) {
+                errorTitle = 'Too Soon';
+                errorMessage = 'Please wait 24 hours between faucet claims.';
+              } else if (error.message?.includes('network') || error.message?.includes('connection')) {
+                errorTitle = 'Network Error';
+                errorMessage = 'Please check your internet connection and try again.';
+              }
+              
+              Alert.alert(errorTitle, errorMessage);
             } finally {
               setLoading(false);
             }
@@ -128,10 +250,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         },
       ]
     );
-  };
-
-  const handleScanToPay = () => {
-    navigation.navigate('Scan');
   };
 
   if (loading && !walletAddress) {
@@ -167,64 +285,47 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           end={{ x: 1, y: 1 }}
           style={styles.balanceCard}
         >
-          {/* Decorative circles */}
           <View style={styles.decorativeCircle1} />
           <View style={styles.decorativeCircle2} />
           
-          {/* Card Header */}
           <View style={styles.balanceHeader}>
             <View style={styles.balanceLabelContainer}>
               <Text style={styles.balanceIcon}>💰</Text>
               <Text style={styles.balanceLabel}>Total Balance</Text>
             </View>
-            <View style={styles.networkBadge}>
-              <View style={styles.networkDot} />
-              <Text style={styles.networkText}>Polygon</Text>
-            </View>
           </View>
           
-          {/* Balance Amount */}
           <View style={styles.balanceAmountContainer}>
             <Text style={styles.balanceAmount}>{balance}</Text>
             <Text style={styles.balanceCurrency}>PAY</Text>
           </View>
           
-          {/* Balance in INR (mock) */}
           <Text style={styles.balanceUsd}>≈ ₹{(parseFloat(balance) * 0.85).toFixed(2)} INR</Text>
-          
-          {/* Wallet Address */}
-          <View style={styles.walletAddressContainer}>
-            <TouchableOpacity 
-              style={styles.walletAddressBadge}
-              onPress={() => {
-                Alert.alert('Wallet Address', walletAddress, [
-                  { text: 'Copy', onPress: () => {} },
-                  { text: 'Close' }
-                ]);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.walletIcon}>🔗</Text>
-              <Text style={styles.walletAddressText}>
-                {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
-              </Text>
-              <Text style={styles.copyIcon}>📋</Text>
-            </TouchableOpacity>
-          </View>
         </LinearGradient>
       </Animated.View>
 
-      {/* Quick Actions */}
+      {/* Quick Actions - Updated */}
       <View style={styles.quickActions}>
         <TouchableOpacity
           style={styles.actionCard}
-          onPress={handleScanToPay}
+          onPress={handleSendMoney}
           activeOpacity={0.8}
         >
-          <View style={[styles.actionIconContainer, { backgroundColor: COLORS.primaryLight + '20' }]}>
-            <Text style={styles.actionEmoji}>📷</Text>
+          <View style={[styles.actionIconContainer, { backgroundColor: COLORS.primary + '20' }]}>
+            <Text style={styles.actionEmoji}>💸</Text>
           </View>
-          <Text style={styles.actionTitle}>Scan QR</Text>
+          <Text style={styles.actionTitle}>Send Money</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionCard}
+          onPress={handleRequestTokens}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.actionIconContainer, { backgroundColor: COLORS.success + '20' }]}>
+            <Text style={styles.actionEmoji}>💰</Text>
+          </View>
+          <Text style={styles.actionTitle}>Add money</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -237,69 +338,51 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </View>
           <Text style={styles.actionTitle}>History</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionCard}
-          onPress={handleRequestTokens}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.actionIconContainer, { backgroundColor: COLORS.success + '20' }]}>
-            <Text style={styles.actionEmoji}>💰</Text>
-          </View>
-          <Text style={styles.actionTitle}>Faucet</Text>
-        </TouchableOpacity>
       </View>
 
-      {/* Features Section */}
-      <View style={styles.featuresSection}>
-        <Text style={styles.sectionTitle}>Quick Access</Text>
+      {/* Recent Transactions Section */}
+      <View style={styles.transactionsSection}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Recent Transactions</Text>
+          {transactions.length > 0 && (
+            <TouchableOpacity onPress={() => navigation.navigate('TransactionHistory')}>
+              <Text style={styles.seeAllText}>See All →</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         
-        <TouchableOpacity
-          style={styles.featureCard}
-          onPress={() => navigation.navigate('MerchantRegistration')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.featureContent}>
-            <View style={[styles.featureIcon, { backgroundColor: COLORS.warning + '15' }]}>
-              <Text style={styles.featureEmoji}>🏪</Text>
-            </View>
-            <View style={styles.featureText}>
-              <Text style={styles.featureTitle}>Become a Merchant</Text>
-              <Text style={styles.featureDescription}>
-                Accept payments for your business
-              </Text>
-            </View>
+        {transactions.length === 0 ? (
+          <View style={styles.emptyTransactions}>
+            <Text style={styles.emptyIcon}>💳</Text>
+            <Text style={styles.emptyTitle}>No Transactions Yet</Text>
+            <Text style={styles.emptyDescription}>
+              Your transaction history will appear here
+            </Text>
           </View>
-          <Text style={styles.featureArrow}>→</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.featureCard}
-          onPress={() => Alert.alert('Coming Soon', 'Refer friends and earn rewards!')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.featureContent}>
-            <View style={[styles.featureIcon, { backgroundColor: COLORS.secondary + '15' }]}>
-              <Text style={styles.featureEmoji}>🎁</Text>
-            </View>
-            <View style={styles.featureText}>
-              <Text style={styles.featureTitle}>Refer & Earn</Text>
-              <Text style={styles.featureDescription}>
-                Share CryptoPay with friends
-              </Text>
-            </View>
+        ) : (
+          <View style={styles.transactionsList}>
+            {transactions.map((transaction, index) => (
+              <TransactionItem
+                key={transaction.tx_hash || index}
+                transaction={{
+                  ...transaction,
+                  id: transaction.id || transaction.tx_hash,
+                  created_at: transaction.created_at || new Date().toISOString(),
+                }}
+                currentWallet={walletAddress}
+              />
+            ))}
           </View>
-          <Text style={styles.featureArrow}>→</Text>
-        </TouchableOpacity>
+        )}
       </View>
 
       {/* Info Banner */}
       <View style={styles.infoBanner}>
         <Text style={styles.infoBannerIcon}>ℹ️</Text>
         <View style={styles.infoBannerContent}>
-          <Text style={styles.infoBannerTitle}>Running on Testnet</Text>
+          <Text style={styles.infoBannerTitle}>Development Mode</Text>
           <Text style={styles.infoBannerText}>
-            Polygon Amoy • Free to use • No real money
+            Test environment • Free to use • No real money
           </Text>
         </View>
       </View>
@@ -351,9 +434,9 @@ const styles = StyleSheet.create({
   balanceLabelContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs,
   },
   balanceIcon: {
+    marginRight: SPACING.xs,
     fontSize: 18,
   },
   balanceLabel: {
@@ -362,32 +445,12 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     fontWeight: '600',
   },
-  networkBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    borderRadius: 12,
-    gap: SPACING.xs,
-  },
-  networkDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#00D68F',
-  },
-  networkText: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textInverse,
-    fontWeight: '600',
-  },
   balanceAmountContainer: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: SPACING.sm,
   },
   balanceAmount: {
+    marginRight: SPACING.sm,
     fontSize: 48,
     fontWeight: '700',
     color: COLORS.textInverse,
@@ -404,48 +467,12 @@ const styles = StyleSheet.create({
     color: COLORS.textInverse,
     opacity: 0.7,
     marginTop: SPACING.xs,
-    marginBottom: SPACING.lg,
-  },
-  walletAddressContainer: {
-    alignItems: 'flex-start',
-  },
-  walletAddressBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: 20,
-    gap: SPACING.xs,
-  },
-  walletIcon: {
-    fontSize: 12,
-  },
-  walletAddressText: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textInverse,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    fontWeight: '600',
-  },
-  copyIcon: {
-    fontSize: 12,
-    opacity: 0.8,
-  },
-
-  // Sections
-  actionsSection: {
-    marginBottom: SPACING.xl,
-  },
-  sectionTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: SPACING.md,
   },
   quickActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: SPACING.sm,
+    marginHorizontal: -SPACING.xs,
+    marginBottom: SPACING.xl,
   },
   actionCard: {
     flex: 1,
@@ -453,6 +480,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: SPACING.md,
     alignItems: 'center',
+    marginHorizontal: SPACING.xs,
     ...SHADOWS.sm,
   },
   actionIconContainer: {
@@ -472,57 +500,53 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     textAlign: 'center',
   },
-
-  // Features Section
-  featuresSection: {
+  transactionsSection: {
     marginBottom: SPACING.lg,
   },
-  featureCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: SPACING.lg,
-    marginBottom: SPACING.sm,
+  sectionHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  sectionTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  seeAllText: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  transactionsList: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    overflow: 'hidden',
     ...SHADOWS.sm,
   },
-  featureContent: {
-    flexDirection: 'row',
+  emptyTransactions: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.xl,
     alignItems: 'center',
-    flex: 1,
+    ...SHADOWS.sm,
   },
-  featureIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: SPACING.md,
   },
-  featureEmoji: {
-    fontSize: 22,
-  },
-  featureText: {
-    flex: 1,
-  },
-  featureTitle: {
-    fontSize: FONT_SIZES.md,
+  emptyTitle: {
+    fontSize: FONT_SIZES.lg,
     fontWeight: '600',
     color: COLORS.text,
-    marginBottom: 2,
+    marginBottom: SPACING.xs,
   },
-  featureDescription: {
-    fontSize: FONT_SIZES.xs,
+  emptyDescription: {
+    fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
+    textAlign: 'center',
   },
-  featureArrow: {
-    fontSize: FONT_SIZES.xl,
-    color: COLORS.textTertiary,
-    marginLeft: SPACING.sm,
-  },
-
-  // Info Banner
   infoBanner: {
     backgroundColor: COLORS.infoBg,
     borderRadius: 12,

@@ -2,14 +2,38 @@
 
 export interface PaymentQRData {
   type: 'cryptopay';
-  merchant: string; // Wallet address
+  merchant: string; // Wallet address (for backward compatibility)
+  merchantId?: string; // Merchant ID from Supabase (Invisible Rail - preferred)
   amount: string; // Amount in PAY tokens
   name: string; // Merchant/recipient name
   note?: string; // Optional payment note
 }
 
 /**
- * Generate QR code data for payment request
+ * Generate QR code data for payment request (Invisible Rail - new format)
+ * Uses merchant ID instead of wallet address for better UX
+ */
+export function generatePaymentQRWithId(
+  merchantId: string,
+  amount: string,
+  merchantName: string,
+  merchantAddress: string, // Still needed for fallback
+  note?: string
+): string {
+  const qrData: PaymentQRData = {
+    type: 'cryptopay',
+    merchantId: merchantId, // Primary identifier (Invisible Rail)
+    merchant: merchantAddress, // Fallback for old app versions
+    amount: amount,
+    name: merchantName,
+    note: note,
+  };
+  return JSON.stringify(qrData);
+}
+
+/**
+ * Generate QR code data for payment request (Legacy format)
+ * @deprecated Use generatePaymentQRWithId for new implementations
  */
 export function generatePaymentQR(
   merchantAddress: string,

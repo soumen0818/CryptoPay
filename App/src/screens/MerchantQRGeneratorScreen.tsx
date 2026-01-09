@@ -267,15 +267,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   form: {
-    gap: SPACING.lg,
   },
   inputGroup: {
-    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
   },
   label: {
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
     color: COLORS.text,
+    marginBottom: SPACING.sm,
   },
   input: {
     backgroundColor: COLORS.card,
@@ -324,7 +324,6 @@ const styles = StyleSheet.create({
   },
   qrContainer: {
     alignItems: 'center',
-    gap: SPACING.lg,
   },
   qrBox: {
     backgroundColor: '#fff',
@@ -335,20 +334,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
+    marginBottom: SPACING.lg,
   },
   qrLabel: {
     fontSize: FONT_SIZES.lg,
     fontWeight: 'bold',
     color: COLORS.text,
+    marginBottom: SPACING.lg,
   },
   qrAmount: {
     fontSize: FONT_SIZES.xl,
     fontWeight: 'bold',
     color: COLORS.primary,
+    marginBottom: SPACING.lg,
   },
   actions: {
     flexDirection: 'row',
-    gap: SPACING.md,
     width: '100%',
   },
   actionButton: {
@@ -359,6 +360,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: COLORS.border,
+    marginHorizontal: SPACING.xs,
   },
   actionButtonText: {
     fontSize: FONT_SIZES.md,
@@ -370,7 +372,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: SPACING.lg,
     width: '100%',
-    gap: SPACING.xs,
+    marginBottom: SPACING.lg,
   },
   instructionsTitle: {
     fontSize: FONT_SIZES.md,
@@ -381,6 +383,7 @@ const styles = StyleSheet.create({
   instructionsText: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
+    marginBottom: SPACING.xs,
   },
   doneButton: {
     backgroundColor: COLORS.primary,

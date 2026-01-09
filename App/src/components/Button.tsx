@@ -87,7 +87,6 @@ const styles = StyleSheet.create({
   content: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
   },
   
   // Variants
@@ -161,6 +160,7 @@ const styles = StyleSheet.create({
   },
   icon: {
     fontSize: 20,
+    marginRight: SPACING.sm,
   },
   fullWidth: {
     width: '100%',

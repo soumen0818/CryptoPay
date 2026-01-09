@@ -224,15 +224,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   form: {
-    gap: SPACING.lg,
   },
   inputGroup: {
-    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
   },
   label: {
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
     color: COLORS.text,
+    marginBottom: SPACING.sm,
   },
   input: {
     backgroundColor: COLORS.card,
@@ -250,7 +250,8 @@ const styles = StyleSheet.create({
   categoryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: SPACING.sm,
+    marginHorizontal: -SPACING.xs,
+    marginVertical: -SPACING.xs,
   },
   categoryCard: {
     backgroundColor: COLORS.card,
@@ -259,6 +260,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: COLORS.border,
     minWidth: '48%',
+    margin: SPACING.xs,
   },
   categoryCardSelected: {
     borderColor: COLORS.primary,
@@ -273,22 +275,22 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.card,
     borderRadius: 12,
     padding: SPACING.lg,
-    gap: SPACING.sm,
   },
   featuresTitle: {
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
     color: COLORS.text,
-    marginBottom: SPACING.xs,
+    marginBottom: SPACING.sm,
   },
   feature: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
   },
   featureIcon: {
     fontSize: 16,
     color: '#10b981',
+    marginRight: SPACING.sm,
   },
   featureText: {
     fontSize: FONT_SIZES.sm,

@@ -8,22 +8,11 @@ import {
   Platform,
   TouchableOpacity,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PINInput } from '../components/PINInput';
+import { verifyPin, changeWalletPin } from '../services/wallet';
 import { COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS } from '../constants/theme';
 
 const FONT_SIZES = TYPOGRAPHY.sizes;
-
-// Simple PIN hashing (same as wallet.ts)
-function hashPin(pin: string): string {
-  let hash = 0;
-  for (let i = 0; i < pin.length; i++) {
-    const char = pin.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash;
-  }
-  return hash.toString(16);
-}
 
 type Step = 'verify' | 'new' | 'confirm';
 
@@ -43,9 +32,10 @@ export const ChangePINScreen: React.FC<ChangePINScreenProps> = ({ navigation }) 
     setError('');
     
     try {
-      const storedPin = await AsyncStorage.getItem('user_pin');
+      // Use wallet.ts verifyPin function to check against SecureStore
+      const isValid = await verifyPin(pin);
       
-      if (pin === storedPin) {
+      if (isValid) {
         setCurrentPin(pin);
         setStep('new');
       } else {
@@ -53,7 +43,9 @@ export const ChangePINScreen: React.FC<ChangePINScreenProps> = ({ navigation }) 
         setTimeout(() => setCurrentPin(''), 300);
       }
     } catch (err) {
+      console.error('PIN verification error:', err);
       setError('Error verifying PIN');
+      setTimeout(() => setCurrentPin(''), 300);
     }
   };
 
@@ -89,13 +81,12 @@ export const ChangePINScreen: React.FC<ChangePINScreenProps> = ({ navigation }) 
     setLoading(true);
     
     try {
-      // Save new PIN
-      await AsyncStorage.setItem('user_pin', newPin);
-      await AsyncStorage.setItem('pin_hash', hashPin(newPin));
+      // ✅ FIXED: Use wallet.changeWalletPin to properly re-encrypt mnemonic
+      await changeWalletPin(currentPin, newPin);
       
       Alert.alert(
         '✅ PIN Changed',
-        'Your PIN has been updated successfully.',
+        'Your wallet PIN has been updated successfully. Your funds remain secure.',
         [
           {
             text: 'OK',
@@ -103,8 +94,18 @@ export const ChangePINScreen: React.FC<ChangePINScreenProps> = ({ navigation }) 
           },
         ]
       );
-    } catch (err) {
-      setError('Failed to update PIN');
+    } catch (err: any) {
+      console.error('Failed to change PIN:', err);
+      setError(err.message || 'Failed to update PIN');
+      setLoading(false);
+      
+      // Reset to verify step on critical failure
+      setTimeout(() => {
+        setCurrentPin('');
+        setNewPin('');
+        setConfirmPin('');
+        setStep('verify');
+      }, 2000);
     } finally {
       setLoading(false);
     }

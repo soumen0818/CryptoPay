@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,14 @@ import {
   ScrollView,
   Platform,
   KeyboardAvoidingView,
+  BackHandler,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ethers } from 'ethers';
 import { getWallet } from '../services/wallet';
 import { getProvider, getTokenContract, transferTokens } from '../services/blockchain';
 import { saveTransaction } from '../services/storage';
-import { authenticateWithBiometric } from '../utils/biometric';
+import { authenticateWithBiometric, authenticateWithPIN } from '../utils/biometric';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS } from '../constants/theme';
 import { Button, LoadingSpinner } from '../components';
 
@@ -27,10 +28,20 @@ interface SendMoneyScreenProps {
 export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, route }) => {
   const [walletAddress, setWalletAddress] = useState<string>('');
   const [recipientAddress, setRecipientAddress] = useState<string>('');
-  const [amount, setAmount] = useState<string>('');
+  const [recipientName, setRecipientName] = useState<string>('');
+  const [amountINR, setAmountINR] = useState<string>(''); // User enters INR
   const [note, setNote] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [balance, setBalance] = useState<string>('0');
+  const [hideBalance, setHideBalance] = useState<boolean>(false);
+  const paymentInProgress = useRef<boolean>(false);
+  const networkTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Conversion rate: 1 PAY = 0.85 INR
+  const INR_TO_PAY_RATE = 0.85;
+  
+  // Calculate PAY amount from INR
+  const amountPAY = amountINR ? (parseFloat(amountINR) / INR_TO_PAY_RATE).toFixed(2) : '0';
 
   useEffect(() => {
     loadWalletData();
@@ -39,10 +50,44 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
     if (route?.params?.recipientAddress) {
       setRecipientAddress(route.params.recipientAddress);
     }
+    if (route?.params?.recipientName) {
+      setRecipientName(route.params.recipientName);
+    }
     if (route?.params?.amount) {
-      setAmount(route.params.amount);
+      // Convert PAY amount from QR to INR for display
+      const payAmount = parseFloat(route.params.amount);
+      const inrAmount = (payAmount * INR_TO_PAY_RATE).toFixed(2);
+      setAmountINR(inrAmount);
+    }
+    if (route?.params?.note) {
+      setNote(route.params.note);
+    }
+    if (route?.params?.hideBalance === true) {
+      setHideBalance(true);
     }
   }, [route?.params]);
+
+  // Handle back button during payment
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (paymentInProgress.current) {
+        Alert.alert(
+          'Transaction Cancelled',
+          'Payment was interrupted. If the transaction was submitted, it may still complete.',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+        return true; // Prevent default back behavior
+      }
+      return false; // Allow default back behavior
+    });
+
+    return () => {
+      backHandler.remove();
+      if (networkTimeoutRef.current) {
+        clearTimeout(networkTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const loadWalletData = async () => {
     try {
@@ -85,15 +130,15 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
       return false;
     }
 
-    const amountNum = parseFloat(amount);
-    if (!amount || isNaN(amountNum) || amountNum <= 0) {
+    const amountNum = parseFloat(amountPAY);
+    if (!amountINR || isNaN(amountNum) || amountNum <= 0) {
       Alert.alert('Invalid Amount', 'Please enter a valid amount');
       return false;
     }
 
     const balanceNum = parseFloat(balance);
     if (amountNum > balanceNum) {
-      Alert.alert('Insufficient Balance', `You only have ${balance} PAY`);
+      Alert.alert('Insufficient Balance', `You only have ${balance} PAY (₹${(parseFloat(balance) * INR_TO_PAY_RATE).toFixed(2)} INR)`);
       return false;
     }
 
@@ -105,7 +150,7 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
 
     Alert.alert(
       'Confirm Payment',
-      `Send ${amount} PAY to\n${recipientAddress.substring(0, 10)}...${recipientAddress.substring(recipientAddress.length - 8)}${note ? `\n\nNote: ${note}` : ''}`,
+      `Send ₹${amountINR} INR (${amountPAY} PAY) to\n${recipientAddress.substring(0, 10)}...${recipientAddress.substring(recipientAddress.length - 8)}${note ? `\n\nNote: ${note}` : ''}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -113,66 +158,103 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
           onPress: async () => {
             try {
               setLoading(true);
+              paymentInProgress.current = true;
 
-              // Authenticate with biometric/PIN
-              const authenticated = await authenticateWithBiometric();
-              if (!authenticated) {
-                setLoading(false);
-                Alert.alert('Authentication Failed', 'Transaction cancelled');
-                return;
-              }
+              // Set timeout for slow network detection (5 seconds)
+              networkTimeoutRef.current = setTimeout(() => {
+                if (paymentInProgress.current) {
+                  Alert.alert(
+                    'Slow Network Detected',
+                    'Your network connection is slow. The payment is still processing...',
+                    [{ text: 'OK' }]
+                  );
+                }
+              }, 10000);
 
               // Get PIN and wallet
               const storedPin = await AsyncStorage.getItem('user_pin');
               if (!storedPin) {
+                paymentInProgress.current = false;
                 setLoading(false);
+                if (networkTimeoutRef.current) clearTimeout(networkTimeoutRef.current);
                 Alert.alert('Error', 'PIN not found. Please sign in again.');
                 return;
               }
 
-              let wallet = await getWallet(storedPin);
-              if (!wallet) {
+              // Authenticate with biometric, fallback to PIN if not available
+              let authenticated = await authenticateWithBiometric();
+              
+              // If biometric not available or failed, use PIN
+              if (!authenticated) {
+                authenticated = await authenticateWithPIN();
+              }
+              
+              const wallet = await getWallet(storedPin);
+
+              if (!authenticated) {
+                paymentInProgress.current = false;
                 setLoading(false);
+                if (networkTimeoutRef.current) clearTimeout(networkTimeoutRef.current);
+                Alert.alert('Authentication Failed', 'Transaction cancelled');
+                return;
+              }
+
+              if (!wallet) {
+                paymentInProgress.current = false;
+                setLoading(false);
+                if (networkTimeoutRef.current) clearTimeout(networkTimeoutRef.current);
                 Alert.alert('Error', 'Failed to load wallet');
                 return;
               }
 
-              wallet = wallet.connect(getProvider());
+              const connectedWallet = wallet.connect(getProvider());
 
-              // Transfer tokens
+              // Transfer tokens (in PAY)
               const txHash = await transferTokens(
-                wallet,
+                connectedWallet,
                 recipientAddress.trim(),
-                amount
+                amountPAY
               );
 
-              // Save transaction locally
-              await saveTransaction({
+              // Clear timeout on success
+              if (networkTimeoutRef.current) clearTimeout(networkTimeoutRef.current);
+              paymentInProgress.current = false;
+
+              // Save transaction locally and sync to Supabase
+              const transactionData = {
                 tx_hash: txHash,
                 to_address: recipientAddress.trim(),
                 from_address: walletAddress,
-                amount: amount,
-                status: 'pending',
+                amount: amountPAY,
+                status: 'pending' as const,
                 merchant_name: note || undefined,
-              });
+                created_at: new Date().toISOString(),
+              };
+              
+              saveTransaction(transactionData)
+                .then(() => console.log('✅ Transaction saved and synced'))
+                .catch(err => console.error('❌ Transaction save/sync error:', err));
 
               setLoading(false);
 
               Alert.alert(
                 '✅ Payment Sent!',
-                `Successfully sent ${amount} PAY\n\nTransaction will confirm shortly.`,
+                `Successfully sent ₹${amountINR} INR (${amountPAY} PAY)\n\nTransaction will confirm shortly.`,
                 [
                   {
                     text: 'OK',
                     onPress: () => {
                       navigation.goBack();
-                      setTimeout(() => loadBalance(walletAddress), 6000);
+                      // Refresh balance in background
+                      setTimeout(() => loadBalance(walletAddress), 2000);
                     },
                   },
                 ]
               );
             } catch (error: any) {
+              paymentInProgress.current = false;
               setLoading(false);
+              if (networkTimeoutRef.current) clearTimeout(networkTimeoutRef.current);
               console.error('Send money error:', error);
               Alert.alert('Transaction Failed', error.message || 'Failed to send payment');
             }
@@ -196,8 +278,16 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
     }
   };
 
-  const handleScanQR = () => {
-    navigation.navigate('Scan', { returnTo: 'SendMoney' });
+  const handleBackPress = () => {
+    if (paymentInProgress.current) {
+      Alert.alert(
+        'Transaction Cancelled',
+        'Payment was interrupted. If the transaction was submitted, it may still complete.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+    } else {
+      navigation.goBack();
+    }
   };
 
   if (loading) {
@@ -218,7 +308,7 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={handleBackPress}
           >
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
@@ -226,19 +316,29 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
           <View style={styles.placeholder} />
         </View>
 
-        {/* Balance Card */}
-        <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>Available Balance</Text>
-          <View style={styles.balanceRow}>
-            <Text style={styles.balanceAmount}>{balance}</Text>
-            <Text style={styles.balanceCurrency}>PAY</Text>
+        {/* Balance Card - Hidden when scanned from other places */}
+        {!hideBalance && (
+          <View style={styles.balanceCard}>
+            <Text style={styles.balanceLabel}>Available Balance</Text>
+            <View style={styles.balanceRow}>
+              <Text style={styles.balanceAmount}>{balance}</Text>
+              <Text style={styles.balanceCurrency}>PAY</Text>
+            </View>
+            <Text style={styles.balanceUsd}>≈ ₹{(parseFloat(balance) * 0.85).toFixed(2)} INR</Text>
           </View>
-          <Text style={styles.balanceUsd}>≈ ₹{(parseFloat(balance) * 0.85).toFixed(2)} INR</Text>
-        </View>
+        )}
 
         {/* Recipient Address Input */}
         <View style={styles.inputSection}>
-          <Text style={styles.inputLabel}>Recipient Wallet Address</Text>
+          <Text style={styles.inputLabel}>
+            {recipientName ? `Send to ${recipientName}` : 'Recipient Wallet Address'}
+          </Text>
+          {recipientName && (
+            <View style={styles.recipientNameBadge}>
+              <Text style={styles.recipientNameIcon}>✓</Text>
+              <Text style={styles.recipientNameText}>{recipientName}</Text>
+            </View>
+          )}
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
@@ -248,38 +348,41 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
               onChangeText={setRecipientAddress}
               autoCapitalize="none"
               autoCorrect={false}
+              editable={!recipientAddress || !route?.params?.recipientAddress}
             />
             <TouchableOpacity style={styles.inputButton} onPress={handlePasteAddress}>
               <Text style={styles.inputButtonText}>📋</Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.scanButton} onPress={handleScanQR}>
-            <Text style={styles.scanButtonIcon}>📷</Text>
-            <Text style={styles.scanButtonText}>Scan QR Code</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Amount Input */}
         <View style={styles.inputSection}>
-          <Text style={styles.inputLabel}>Amount (PAY)</Text>
+          <Text style={styles.inputLabel}>Amount</Text>
           <View style={styles.amountInputContainer}>
             <Text style={styles.currencySymbol}>₹</Text>
             <TextInput
               style={styles.amountInput}
               placeholder="0.00"
               placeholderTextColor={COLORS.textTertiary}
-              value={amount}
-              onChangeText={setAmount}
+              value={amountINR}
+              onChangeText={setAmountINR}
               keyboardType="decimal-pad"
             />
+            <Text style={styles.currencyLabel}>INR</Text>
           </View>
+          {amountINR && parseFloat(amountINR) > 0 && (
+            <View style={styles.conversionInfo}>
+              <Text style={styles.conversionText}>≈ {amountPAY} PAY</Text>
+            </View>
+          )}
           {/* Quick Amount Buttons */}
           <View style={styles.quickAmountContainer}>
             {['10', '50', '100', '500'].map((quickAmount) => (
               <TouchableOpacity
                 key={quickAmount}
                 style={styles.quickAmountButton}
-                onPress={() => setAmount(quickAmount)}
+                onPress={() => setAmountINR(quickAmount)}
               >
                 <Text style={styles.quickAmountText}>₹{quickAmount}</Text>
               </TouchableOpacity>
@@ -304,12 +407,20 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
         <TouchableOpacity
           style={[
             styles.sendButton,
-            (!recipientAddress || !amount || parseFloat(amount) <= 0) && styles.sendButtonDisabled,
+            (!recipientAddress || !amountINR || parseFloat(amountINR) <= 0) && styles.sendButtonDisabled,
           ]}
           onPress={handleSendMoney}
-          disabled={!recipientAddress || !amount || parseFloat(amount) <= 0}
+          disabled={!recipientAddress || !amountINR || parseFloat(amountINR) <= 0}
+          activeOpacity={0.8}
         >
-          <Text style={styles.sendButtonText}>💸 Send Money</Text>
+          <View style={styles.sendButtonContent}>
+            <Text style={styles.sendButtonEmoji}>💸</Text>
+            <Text style={styles.sendButtonText}>
+              {amountINR && parseFloat(amountINR) > 0 
+                ? `Send ₹${amountINR}` 
+                : 'Enter Amount to Send'}
+            </Text>
+          </View>
         </TouchableOpacity>
 
         {/* Info */}
@@ -406,8 +517,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.text,
     marginBottom: SPACING.sm,
+  },  recipientNameBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.successBg,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: BORDER_RADIUS.sm,
+    marginBottom: SPACING.sm,
+    alignSelf: 'flex-start',
   },
-  inputContainer: {
+  recipientNameIcon: {
+    fontSize: 14,
+    marginRight: SPACING.xs,
+  },
+  recipientNameText: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.success,
+  },  inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.surface,
@@ -453,7 +581,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 2,
-    borderColor: COLORS.border,
+    borderColor: COLORS.primary,
     paddingHorizontal: SPACING.md,
     ...SHADOWS.sm,
   },
@@ -461,14 +589,32 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.xl,
     fontWeight: '700',
     color: COLORS.text,
-    marginRight: SPACING.sm,
+    marginRight: SPACING.xs,
   },
   amountInput: {
     flex: 1,
     fontSize: FONT_SIZES.xl,
     fontWeight: '700',
     color: COLORS.text,
-    padding: SPACING.md,
+    paddingVertical: SPACING.md,
+  },
+  currencyLabel: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  conversionInfo: {
+    backgroundColor: COLORS.successBg,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: BORDER_RADIUS.sm,
+    marginTop: SPACING.sm,
+    alignSelf: 'flex-start',
+  },
+  conversionText: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.success,
   },
   quickAmountContainer: {
     flexDirection: 'row',
@@ -502,20 +648,35 @@ const styles = StyleSheet.create({
   },
   sendButton: {
     backgroundColor: COLORS.primary,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    paddingVertical: SPACING.lg + 4,
+    paddingHorizontal: SPACING.xl,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: SPACING.lg,
     marginBottom: SPACING.lg,
-    ...SHADOWS.md,
+    ...SHADOWS.lg,
+    elevation: 8,
   },
   sendButtonDisabled: {
-    backgroundColor: COLORS.border,
-    opacity: 0.5,
+    backgroundColor: '#9CA3AF',
+    ...SHADOWS.sm,
+    elevation: 2,
+  },
+  sendButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendButtonEmoji: {
+    fontSize: 24,
+    marginRight: SPACING.sm,
   },
   sendButtonText: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '700',
+    fontSize: FONT_SIZES.xl,
+    fontWeight: '800',
     color: COLORS.textInverse,
+    letterSpacing: 0.5,
   },
   infoCard: {
     flexDirection: 'row',

@@ -6,7 +6,7 @@ const DEV_PHONE_NUMBER = process.env.EXPO_PUBLIC_DEV_PHONE || '+911234567890';
 const DEV_OTP = process.env.EXPO_PUBLIC_DEV_OTP || '123456';
 
 // Rate limiting constants
-const MAX_OTP_ATTEMPTS_PER_DAY = 3;
+const MAX_OTP_ATTEMPTS_PER_DAY = 10;
 const OTP_RATE_LIMIT_KEY = 'otp_rate_limit';
 
 interface OTPRateLimit {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,11 @@ import {
 import { PaymentQRData } from '../utils/qrCode';
 import { authenticateWithBiometric } from '../utils/biometric';
 import { getWallet } from '../services/wallet';
-import { sendPayment } from '../services/blockchain';
+import { sendPayment, getProvider } from '../services/blockchain';
 import { saveTransaction } from '../services/storage';
 import { monitorTransaction } from '../services/transactionMonitor';
+import { getMerchantById, getMerchantByAddress } from '../services/merchant';
+import { checkTransactionLimit, recordTransaction, checkRateLimit, recordAction } from '../services/securityLimits';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS } from '../constants/theme';
 import { Button, Card, SuccessAnimation } from '../components';
@@ -22,6 +24,11 @@ interface PaymentConfirmScreenProps {
   route: {
     params: {
       paymentData: PaymentQRData;
+      merchantDetails?: {
+        business_name: string;
+        category?: string;
+        description?: string;
+      };
     };
   };
 }
@@ -30,9 +37,44 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
   navigation,
   route,
 }) => {
-  const { paymentData } = route.params;
+  const { paymentData, merchantDetails } = route.params;
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [merchantInfo, setMerchantInfo] = useState(merchantDetails || null);
+
+  // Fetch merchant details if not provided
+  useEffect(() => {
+    const loadMerchantDetails = async () => {
+      if (merchantDetails) return; // Already have details
+
+      try {
+        // Try to get merchant info from DB (Invisible Rail)
+        let merchant = null;
+        
+        // First try by merchantId if available
+        if (paymentData.merchantId) {
+          merchant = await getMerchantById(paymentData.merchantId);
+        }
+        
+        // Fallback to address lookup
+        if (!merchant && paymentData.merchant) {
+          merchant = await getMerchantByAddress(paymentData.merchant);
+        }
+
+        if (merchant) {
+          setMerchantInfo({
+            business_name: merchant.business_name,
+            category: merchant.category,
+            description: merchant.description,
+          });
+        }
+      } catch (error) {
+        console.error('Error loading merchant details:', error);
+      }
+    };
+
+    loadMerchantDetails();
+  }, [paymentData, merchantDetails]);
 
   const showSuccessAnimation = () => {
     setShowSuccess(true);
@@ -61,6 +103,31 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
     try {
       setLoading(true);
 
+      // Phase 4: Check rate limiting
+      const rateLimitCheck = await checkRateLimit('payment');
+      if (!rateLimitCheck.allowed) {
+        Alert.alert(
+          'Too Many Requests',
+          'Please wait a moment before trying again.'
+        );
+        setLoading(false);
+        return;
+      }
+      await recordAction('payment');
+
+      // Phase 4: Check transaction limits
+      const amount = parseFloat(paymentData.amount);
+      const limitCheck = await checkTransactionLimit(amount);
+      
+      if (!limitCheck.allowed) {
+        Alert.alert(
+          'Transaction Limit Exceeded',
+          limitCheck.message || 'This transaction exceeds your daily limits.'
+        );
+        setLoading(false);
+        return;
+      }
+
       // Step 1: Biometric authentication
       const authenticated = await authenticateWithBiometric();
 
@@ -70,59 +137,111 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
         return;
       }
 
-      // Step 2: Get stored PIN and retrieve wallet
-      const storedPin = await AsyncStorage.getItem('user_pin');
-      if (!storedPin) {
-        Alert.alert('Error', 'PIN not found. Please restart the app.');
-        setLoading(false);
-        return;
-      }
+      // Phase 2: Optimistic UX - Generate temporary transaction ID immediately
+      const tempTxId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const submittedAt = new Date().toISOString();
 
-      const wallet = await getWallet(storedPin);
-      if (!wallet) {
-        Alert.alert('Error', 'Failed to access wallet');
-        setLoading(false);
-        return;
-      }
-
-      // Step 3: Send payment transaction
-      const txHash = await sendPayment(
-        wallet,
-        paymentData.merchant,
-        paymentData.amount
-      );
-
-      console.log('Transaction sent:', txHash);
-
-      // Step 4: Save transaction to local storage (pending state)
+      // Save transaction as "processing" (internal) but "success" (user-visible)
       await saveTransaction({
-        tx_hash: txHash,
+        tx_hash: tempTxId,
         to_address: paymentData.merchant,
         amount: paymentData.amount,
         status: 'pending',
-        merchant_name: paymentData.name,
+        internal_status: 'processing',
+        user_visible_status: 'success', // Show success to user immediately!
+        merchant_name: merchantInfo?.business_name || paymentData.name,
+        submitted_at: submittedAt,
       });
 
-      // Step 5: Show success animation (transaction sent, not confirmed yet)
+      // Step 2: Show success immediately (Invisible Rail - optimistic UX)
+      setLoading(false);
       showSuccessAnimation();
 
-      // Step 6: Background polling for transaction confirmation
-      pollTransactionStatus(txHash, paymentData);
+      // Step 3: Execute blockchain transaction in background (don't await)
+      (async () => {
+        try {
+          // Get stored PIN and retrieve wallet
+          const storedPin = await AsyncStorage.getItem('user_pin');
+          if (!storedPin) {
+            throw new Error('PIN not found');
+          }
+
+          const wallet = await getWallet(storedPin);
+          if (!wallet) {
+            throw new Error('Failed to access wallet');
+          }
+
+          // Send payment transaction
+          const txHash = await sendPayment(
+            wallet,
+            paymentData.merchant,
+            paymentData.amount
+          );
+
+          console.log('✅ Transaction submitted to blockchain:', txHash);
+
+          // Phase 4: Record successful transaction for limit tracking
+          await recordTransaction(parseFloat(paymentData.amount));
+
+          // Update transaction with real hash and status
+          await saveTransaction({
+            tx_hash: txHash,
+            to_address: paymentData.merchant,
+            amount: paymentData.amount,
+            status: 'pending',
+            internal_status: 'submitted',
+            user_visible_status: 'success',
+            merchant_name: merchantInfo?.business_name || paymentData.name,
+            submitted_at: submittedAt,
+          });
+
+          // Start background monitoring for confirmation
+          pollTransactionStatus(txHash, paymentData);
+
+        } catch (backgroundError: any) {
+          console.error('❌ Background payment error:', backgroundError);
+
+          // Map error to user-friendly message
+          let failureReason = 'Payment failed. Please try again.';
+          if (backgroundError.message?.includes('insufficient funds')) {
+            failureReason = 'Insufficient balance';
+          } else if (backgroundError.message?.includes('INSUFFICIENT_GAS')) {
+            failureReason = 'Network fee too high';
+          } else if (backgroundError.message?.includes('gas')) {
+            failureReason = 'Unable to process payment';
+          }
+
+          // Update transaction to failed
+          await saveTransaction({
+            tx_hash: tempTxId,
+            to_address: paymentData.merchant,
+            amount: paymentData.amount,
+            status: 'failed',
+            internal_status: 'failed',
+            user_visible_status: 'failed',
+            merchant_name: merchantInfo?.business_name || paymentData.name,
+            submitted_at: submittedAt,
+            failure_reason: failureReason,
+          });
+
+          // User already saw success animation, failure will show in transaction history
+          console.log('Transaction marked as failed. User will see in history.');
+        }
+      })();
 
     } catch (error: any) {
       console.error('Payment error:', error);
-      
-      // User-friendly error messages
-      let errorMessage = 'Failed to process payment';
-      if (error.message?.includes('insufficient funds')) {
-        errorMessage = 'Insufficient balance. Please use the faucet to get test tokens.';
-      } else if (error.message?.includes('user rejected')) {
-        errorMessage = 'Transaction rejected';
-      }
-      
-      Alert.alert('Payment Failed', errorMessage);
-    } finally {
       setLoading(false);
+
+      // Only show error if biometric auth failed (before showing success)
+      // User-friendly error messages (Invisible Rail - no blockchain jargon)
+      let errorMessage = 'Unable to process payment. Please try again.';
+      if (error.message?.includes('Authentication Failed')) {
+        // User cancelled biometric - no need to show error
+        return;
+      }
+
+      Alert.alert('Payment Failed', errorMessage);
     }
   };
 
@@ -141,10 +260,19 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
       <Card variant="elevated" style={styles.card}>
         <View style={styles.merchantSection}>
           <Text style={styles.merchantLabel}>Pay to</Text>
-          <Text style={styles.merchantName}>{paymentData.name}</Text>
-          <Text style={styles.merchantAddress}>
-            {paymentData.merchant.slice(0, 6)}...{paymentData.merchant.slice(-4)}
+          <Text style={styles.merchantName}>
+            {merchantInfo?.business_name || paymentData.name}
           </Text>
+          {merchantInfo?.category && (
+            <Text style={styles.merchantCategory}>
+              {merchantInfo.category}
+            </Text>
+          )}
+          {merchantInfo?.description && (
+            <Text style={styles.merchantDescription}>
+              {merchantInfo.description}
+            </Text>
+          )}
         </View>
 
         <View style={styles.divider} />
@@ -176,6 +304,7 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
           variant="outline"
           disabled={loading}
           size="lg"
+          style={{ marginRight: SPACING.md }}
         />
         <Button
           title="Pay Now"
@@ -246,6 +375,19 @@ const styles = StyleSheet.create({
     color: COLORS.textTertiary,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
+  merchantCategory: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.xs,
+    fontWeight: '500',
+  },
+  merchantDescription: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textTertiary,
+    marginTop: SPACING.xs,
+    textAlign: 'center',
+    paddingHorizontal: SPACING.md,
+  },
   divider: {
     height: 1,
     backgroundColor: COLORS.borderLight,
@@ -263,12 +405,12 @@ const styles = StyleSheet.create({
   amountContainer: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: SPACING.sm,
   },
   amountValue: {
     fontSize: FONT_SIZES.xxxl + 4,
     fontWeight: '700',
     color: COLORS.primary,
+    marginRight: SPACING.sm,
   },
   amountCurrency: {
     fontSize: FONT_SIZES.xl,
@@ -292,7 +434,6 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     paddingHorizontal: SPACING.lg,
-    gap: SPACING.md,
     marginTop: SPACING.xl,
   },
   securityNotice: {
@@ -301,10 +442,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: SPACING.xl,
     paddingHorizontal: SPACING.lg,
-    gap: SPACING.sm,
   },
   securityIcon: {
     fontSize: 16,
+    marginRight: SPACING.sm,
   },
   securityText: {
     fontSize: FONT_SIZES.sm,

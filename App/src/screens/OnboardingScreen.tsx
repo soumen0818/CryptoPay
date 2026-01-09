@@ -56,13 +56,13 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }
           />
           <FeatureItem 
             icon="🆓" 
-            title="Zero Fees" 
-            description="Test on Polygon Amoy. No hidden charges."
+            title="Gasless Payments" 
+            description="We cover network fees. You just pay with PAY tokens."
           />
           <FeatureItem 
             icon="📱" 
             title="Simple UX" 
-            description="No gas, no wallets, no complexity. Just pay."
+            description="Scan, authenticate, done. Just like UPI."
           />
         </View>
 

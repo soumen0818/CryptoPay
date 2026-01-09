@@ -258,12 +258,12 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   analyticsGrid: {
-    gap: SPACING.md,
     marginBottom: SPACING.xl,
   },
   analyticsCard: {
     padding: SPACING.lg,
     borderRadius: 12,
+    marginBottom: SPACING.md,
   },
   analyticsLabel: {
     fontSize: FONT_SIZES.sm,
@@ -334,7 +334,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   qrList: {
-    gap: SPACING.md,
   },
   qrCard: {
     backgroundColor: COLORS.card,
@@ -342,6 +341,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     borderColor: COLORS.border,
+    marginBottom: SPACING.md,
   },
   qrCardHeader: {
     flexDirection: 'row',

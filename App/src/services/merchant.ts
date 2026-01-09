@@ -103,6 +103,62 @@ export async function getMerchantProfile(
 }
 
 /**
+ * Get merchant by ID (Invisible Rail)
+ * Used when QR code contains merchant_id instead of wallet address
+ */
+export async function getMerchantById(
+  merchantId: string
+): Promise<Merchant | null> {
+  try {
+    const { data, error } = await supabase
+      .from('merchants')
+      .select('*')
+      .eq('id', merchantId)
+      .single();
+
+    if (error) {
+      console.error('Error getting merchant by ID:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error getting merchant by ID:', error);
+    return null;
+  }
+}
+
+/**
+ * Get merchant by wallet address (Invisible Rail)
+ * Used for backward compatibility with old QR codes
+ */
+export async function getMerchantByAddress(
+  walletAddress: string
+): Promise<Merchant | null> {
+  try {
+    const { data, error } = await supabase
+      .from('merchants')
+      .select('*')
+      .eq('wallet_address', walletAddress)
+      .single();
+
+    if (error) {
+      // Not finding a merchant is normal (customer-to-customer transfer)
+      if (error.code === 'PGRST116') {
+        return null;
+      }
+      console.error('Error getting merchant by address:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error getting merchant by address:', error);
+    return null;
+  }
+}
+
+/**
  * Update merchant profile
  */
 export async function updateMerchantProfile(

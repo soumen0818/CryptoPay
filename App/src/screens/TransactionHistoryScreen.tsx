@@ -9,6 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { getTransactions, Transaction } from '../services/storage';
 import { pollPendingTransactions } from '../services/transactionMonitor';
 import { supabase } from '../services/supabase';
@@ -84,6 +85,14 @@ export const TransactionHistoryScreen: React.FC<TransactionHistoryScreenProps> =
       channel.unsubscribe();
     };
   }, []);
+
+  // Refresh transactions when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🔄 TransactionHistory focused - refreshing');
+      loadTransactions();
+    }, [])
+  );
 
   const loadWalletAddress = async () => {
     const address = await AsyncStorage.getItem('wallet_address');

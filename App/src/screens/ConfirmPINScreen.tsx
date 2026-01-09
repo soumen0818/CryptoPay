@@ -37,7 +37,7 @@ export const ConfirmPINScreen: React.FC<ConfirmPINScreenProps> = ({
   navigation,
   route,
 }) => {
-  const { pin: originalPin } = route.params;
+  const { pin: originalPin, phoneNumber } = route.params;
   const [confirmPin, setConfirmPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -114,6 +114,9 @@ export const ConfirmPINScreen: React.FC<ConfirmPINScreenProps> = ({
         // Save wallet address locally for biometric setup
         await AsyncStorage.setItem('wallet_address', walletAddress);
         
+        // Store PIN for future use (payments, faucet, etc.)
+        await AsyncStorage.setItem('user_pin', originalPin);
+        
         // Set biometric as disabled by default
         await AsyncStorage.setItem('biometric_enabled', 'false');
 
@@ -132,14 +135,17 @@ export const ConfirmPINScreen: React.FC<ConfirmPINScreenProps> = ({
           // Continue even if DB insert fails (offline mode)
         }
 
-        // Show success and navigate to biometric setup
+        // Show success and navigate to profile setup
         Alert.alert(
           'Wallet Created! 🎉',
           `Your wallet address:\n${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`,
           [
             {
               text: 'Continue',
-              onPress: () => navigation.replace('BiometricSetup'),
+              onPress: () => navigation.replace('ProfileSetup', { 
+                walletAddress,
+                phoneNumber: phoneNumber || '',
+              }),
             },
           ]
         );

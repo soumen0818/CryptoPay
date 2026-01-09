@@ -1,7 +1,7 @@
 import React from 'react';
-import { Text } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { Text, TouchableOpacity, View, StyleSheet } from 'react-native';
+import { NavigationContainer, useNavigation } from '@react-navigation/native';
+import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SplashScreen } from '../screens/SplashScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
@@ -9,10 +9,11 @@ import { PhoneVerificationScreen } from '../screens/PhoneVerificationScreen';
 import { CreatePINScreen } from '../screens/CreatePINScreen';
 import { ConfirmPINScreen } from '../screens/ConfirmPINScreen';
 import { ChangePINScreen } from '../screens/ChangePINScreen';
+import { ForgotPINScreen } from '../screens/ForgotPINScreen';
 import { BiometricSetupScreen } from '../screens/BiometricSetupScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { HomeScreen } from '../screens/HomeScreen';
-import { SettingsScreen } from '../screens/SettingsScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
 import { ScanScreen } from '../screens/ScanScreen';
 import { PaymentConfirmScreen } from '../screens/PaymentConfirmScreen';
 import { QRGeneratorScreen } from '../screens/QRGeneratorScreen';
@@ -20,19 +21,25 @@ import { TransactionHistoryScreen } from '../screens/TransactionHistoryScreen';
 import { MerchantRegistrationScreen } from '../screens/MerchantRegistrationScreen';
 import { MerchantDashboardScreen } from '../screens/MerchantDashboardScreen';
 import { MerchantQRGeneratorScreen } from '../screens/MerchantQRGeneratorScreen';
+import { SendMoneyScreen } from '../screens/SendMoneyScreen';
+import { ProfileSetupScreen } from '../screens/ProfileSetupScreen';
 import { PaymentQRData } from '../utils/qrCode';
+import { COLORS } from '../constants/theme';
 
 type RootStackParamList = {
   Splash: undefined;
   Onboarding: undefined;
   PhoneVerification: undefined;
-  CreatePIN: undefined;
-  ConfirmPIN: { pin: string };
+  CreatePIN: { phoneNumber: string };
+  ConfirmPIN: { pin: string; phoneNumber: string };
+  ProfileSetup: { walletAddress: string; phoneNumber: string };
   ChangePIN: undefined;
+  ForgotPIN: undefined;
   BiometricSetup: undefined;
   Login: undefined;
   MainTabs: undefined;
-  Scan: undefined;
+  Scan: { returnTo?: string };
+  SendMoney: { recipientAddress?: string; amount?: string; recipientName?: string; note?: string; hideBalance?: boolean };
   PaymentConfirm: { paymentData: PaymentQRData };
   QRGenerator: undefined;
   TransactionHistory: undefined;
@@ -43,7 +50,8 @@ type RootStackParamList = {
 
 type MainTabsParamList = {
   Home: undefined;
-  Settings: undefined;
+  ScanPlaceholder: undefined;
+  Profile: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -51,9 +59,9 @@ const Tab = createBottomTabNavigator<MainTabsParamList>();
 
 const MainTabs = () => (
   <Tab.Navigator
-    screenOptions={{
+    screenOptions={({ route }) => ({
       headerShown: true,
-      tabBarActiveTintColor: '#6366f1',
+      tabBarActiveTintColor: COLORS.primary,
       tabBarInactiveTintColor: '#9ca3af',
       tabBarStyle: {
         borderTopWidth: 1,
@@ -61,8 +69,10 @@ const MainTabs = () => (
         paddingBottom: 5,
         paddingTop: 5,
         height: 60,
+        backgroundColor: '#ffffff',
       },
-    }}
+      tabBarShowLabel: route.name !== 'ScanPlaceholder',
+    })}
   >
     <Tab.Screen
       name="Home"
@@ -74,11 +84,36 @@ const MainTabs = () => (
       }}
     />
     <Tab.Screen
-      name="Settings"
-      component={SettingsScreen}
+      name="ScanPlaceholder"
+      component={View}
+      listeners={({ navigation }) => ({
+        tabPress: (e) => {
+          e.preventDefault();
+          const parent = navigation.getParent();
+          if (parent) {
+            parent.navigate('Scan' as never);
+          }
+        },
+      })}
       options={{
-        tabBarLabel: 'Settings',
-        tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>⚙️</Text>,
+        tabBarLabel: '',
+        tabBarIcon: ({ focused }) => (
+          <View style={styles.scanButton}>
+            <View style={[styles.scanButtonInner, focused && styles.scanButtonFocused]}>
+              <Text style={styles.scanButtonText}>📷</Text>
+            </View>
+          </View>
+        ),
+        headerShown: false,
+      }}
+    />
+    <Tab.Screen
+      name="Profile"
+      component={ProfileScreen}
+      options={{
+        tabBarLabel: 'Profile',
+        tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>👤</Text>,
+        headerTitle: 'Profile',
       }}
     />
   </Tab.Navigator>
@@ -98,11 +133,33 @@ export const Navigation = () => {
         <Stack.Screen name="PhoneVerification" component={PhoneVerificationScreen} />
         <Stack.Screen name="CreatePIN" component={CreatePINScreen} />
         <Stack.Screen name="ConfirmPIN" component={ConfirmPINScreen} />
+        <Stack.Screen 
+          name="ProfileSetup" 
+          component={ProfileSetupScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
         <Stack.Screen name="ChangePIN" component={ChangePINScreen} />
+        <Stack.Screen 
+          name="ForgotPIN" 
+          component={ForgotPINScreen}
+          options={{
+            headerShown: true,
+            headerTitle: 'Reset PIN',
+          }}
+        />
         <Stack.Screen name="BiometricSetup" component={BiometricSetupScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="MainTabs" component={MainTabs} />
         <Stack.Screen name="Scan" component={ScanScreen} />
+        <Stack.Screen 
+          name="SendMoney" 
+          component={SendMoneyScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
         <Stack.Screen 
           name="PaymentConfirm" 
           component={PaymentConfirmScreen}
@@ -150,3 +207,34 @@ export const Navigation = () => {
     </NavigationContainer>
   );
 };
+
+const styles = StyleSheet.create({
+  scanButton: {
+    top: -20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scanButtonInner: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
+  },
+  scanButtonFocused: {
+    backgroundColor: COLORS.primaryDark,
+    transform: [{ scale: 1.1 }],
+  },
+  scanButtonText: {
+    fontSize: 28,
+  },
+});

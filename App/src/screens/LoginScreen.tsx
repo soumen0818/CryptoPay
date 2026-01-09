@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PINInput } from '../components/PINInput';
@@ -57,8 +58,31 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       const success = await authenticateForUnlock();
 
       if (success) {
-        // No wallet exposure! Just navigate to MainTabs
-        // The wallet will be loaded when needed with PIN
+        // Check if PIN is stored
+        const storedPin = await AsyncStorage.getItem('user_pin');
+        
+        if (!storedPin) {
+          // PIN not stored - prompt user to enter it once
+          Alert.alert(
+            'One-Time Setup',
+            'Please enter your PIN once to complete setup. This enables faucet and payment features.',
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  // User will need to use PIN login this time
+                  Alert.alert(
+                    'Use PIN Login',
+                    'Please login with your PIN this time to complete setup.'
+                  );
+                }
+              }
+            ]
+          );
+          return;
+        }
+        
+        // PIN exists, proceed to MainTabs
         navigation.replace('MainTabs');
       }
     } catch (error) {
@@ -66,30 +90,36 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     }
   };
 
-  const handlePINChange = async (newPin: string) => {
+  const handlePINChange = (newPin: string) => {
     setPin(newPin);
     setError('');
 
+    // Only verify when PIN is complete (6 digits)
     if (newPin.length === 6) {
-      setLoading(true);
+      // Small delay to show the last digit before verifying
+      setTimeout(() => verifyPinAndLogin(newPin), 100);
+    }
+  };
+
+  const verifyPinAndLogin = async (pinToVerify: string) => {
+    setLoading(true);
+    
+    try {
+      const isValid = await verifyPin(pinToVerify);
       
-      try {
-        const isValid = await verifyPin(newPin);
-        
-        if (isValid) {
-          // Store PIN for payment transactions
-          await AsyncStorage.setItem('user_pin', newPin);
-          navigation.replace('MainTabs');
-        } else {
-          setError('Incorrect PIN');
-          setPin('');
-        }
-      } catch (err) {
-        setError('Failed to verify PIN');
+      if (isValid) {
+        // Store PIN for payment transactions
+        await AsyncStorage.setItem('user_pin', pinToVerify);
+        navigation.replace('MainTabs');
+      } else {
+        setError('Incorrect PIN');
         setPin('');
-      } finally {
-        setLoading(false);
       }
+    } catch (err) {
+      setError('Failed to verify PIN');
+      setPin('');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -116,6 +146,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             error={error}
             autoFocus={!showBiometric}
           />
+          {loading && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+              <Text style={styles.loadingText}>Verifying...</Text>
+            </View>
+          )}
         </View>
 
         {showBiometric && (
@@ -126,9 +162,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             <Text style={styles.biometricIcon}>
               {biometricType.includes('Face') ? '😊' : '👆'}
             </Text>
-            <Text style={styles.biometricText}>Use {biometricType}</Text>
+            <Text style={styles.biometricText}>Use Biometric Authentication</Text>
           </TouchableOpacity>
         )}
+
+        <TouchableOpacity
+          style={styles.forgotPinButton}
+          onPress={() => navigation.navigate('ForgotPIN')}
+        >
+          <Text style={styles.forgotPinText}>Forgot PIN?</Text>
+        </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
@@ -167,19 +210,40 @@ const styles = StyleSheet.create({
   pinSection: {
     marginBottom: SPACING.xl,
   },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: SPACING.md,
+  },
+  loadingText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    marginLeft: SPACING.sm,
+  },
   biometricButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: SPACING.md,
-    gap: SPACING.sm,
   },
   biometricIcon: {
     fontSize: 24,
+    marginRight: SPACING.sm,
   },
   biometricText: {
     fontSize: FONT_SIZES.md,
     color: COLORS.primary,
     fontWeight: '600',
+  },
+  forgotPinButton: {
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+    marginTop: SPACING.md,
+  },
+  forgotPinText: {
+    fontSize: FONT_SIZES.md,
+    color: COLORS.primary,
+    fontWeight: '500',
   },
 });

@@ -2,6 +2,7 @@
 export const BLOCKCHAIN_CONFIG = {
   RPC_URL: process.env.EXPO_PUBLIC_RPC_URL || 'https://rpc-amoy.polygon.technology',
   TOKEN_ADDRESS: process.env.EXPO_PUBLIC_TOKEN_ADDRESS || '',
+  RELAYER_URL: process.env.EXPO_PUBLIC_RELAYER_URL || 'http://localhost:3000', // Path B - Advanced
   CHAIN_ID: parseInt(process.env.EXPO_PUBLIC_CHAIN_ID || '80002'),
   CHAIN_NAME: 'Polygon Amoy Testnet',
   EXPLORER_URL: 'https://amoy.polygonscan.com',

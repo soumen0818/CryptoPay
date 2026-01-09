@@ -14,9 +14,11 @@ const FONT_SIZES = TYPOGRAPHY.sizes;
 
 interface CreatePINScreenProps {
   navigation: any;
+  route: any;
 }
 
-export const CreatePINScreen: React.FC<CreatePINScreenProps> = ({ navigation }) => {
+export const CreatePINScreen: React.FC<CreatePINScreenProps> = ({ navigation, route }) => {
+  const { phoneNumber } = route.params || {};
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
 
@@ -27,7 +29,7 @@ export const CreatePINScreen: React.FC<CreatePINScreenProps> = ({ navigation }) 
     }
 
     // Navigate to confirm PIN screen
-    navigation.navigate('ConfirmPIN', { pin });
+    navigation.navigate('ConfirmPIN', { pin, phoneNumber });
   };
 
   const handlePINChange = (newPin: string) => {
@@ -37,7 +39,7 @@ export const CreatePINScreen: React.FC<CreatePINScreenProps> = ({ navigation }) 
     // Auto-submit when PIN is complete
     if (newPin.length === 6) {
       setTimeout(() => {
-        navigation.navigate('ConfirmPIN', { pin: newPin });
+        navigation.navigate('ConfirmPIN', { pin: newPin, phoneNumber });
       }, 300);
     }
   };

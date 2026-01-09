@@ -11,6 +11,7 @@ let pollingInterval: NodeJS.Timeout | null = null;
 
 /**
  * Check status of a single transaction and update if confirmed
+ * Phase 2: Updated to handle internal_status and user_visible_status
  */
 export async function checkTransactionStatus(txHash: string): Promise<void> {
   try {
@@ -18,9 +19,23 @@ export async function checkTransactionStatus(txHash: string): Promise<void> {
     
     const status = await getTransactionStatus(txHash);
     
-    if (status === 'success' || status === 'failed') {
-      console.log(`✅ Transaction ${txHash.slice(0, 10)}... status: ${status}`);
-      await updateTransactionStatus(txHash, status);
+    if (status === 'success') {
+      console.log(`✅ Transaction ${txHash.slice(0, 10)}... confirmed`);
+      await updateTransactionStatus(
+        txHash,
+        'success',
+        'confirmed',
+        new Date().toISOString()
+      );
+    } else if (status === 'failed') {
+      console.log(`❌ Transaction ${txHash.slice(0, 10)}... failed`);
+      await updateTransactionStatus(
+        txHash,
+        'failed',
+        'failed',
+        undefined,
+        'Transaction failed on blockchain'
+      );
     } else if (status === 'pending') {
       console.log(`⏳ Transaction ${txHash.slice(0, 10)}... still pending`);
     }
@@ -95,6 +110,7 @@ export function stopTransactionPolling(): void {
 /**
  * Wait for a specific transaction to be confirmed
  * Returns the final status
+ * Phase 2: Updated to handle new status fields
  */
 export async function waitForTransactionConfirmation(
   txHash: string,
@@ -106,27 +122,40 @@ export async function waitForTransactionConfirmation(
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const status = await getTransactionStatus(txHash);
     
-    if (status === 'success' || status === 'failed') {
-      console.log(`✅ Transaction confirmed after ${attempt} attempt(s): ${status}`);
-      await updateTransactionStatus(txHash, status);
-      return status;
+    if (status === 'success') {
+      console.log(`✅ Transaction confirmed after ${attempt} attempt(s)`);
+      await updateTransactionStatus(
+        txHash,
+        'success',
+        'confirmed',
+        new Date().toISOString()
+      );
+      return 'success';
+    } else if (status === 'failed') {
+      console.log(`❌ Transaction failed after ${attempt} attempt(s)`);
+      await updateTransactionStatus(
+        txHash,
+        'failed',
+        'failed',
+        undefined,
+        'Transaction failed on blockchain'
+      );
+      return 'failed';
     }
     
-    console.log(`⏳ Attempt ${attempt}/${maxAttempts}: still pending...`);
-    
-    // Wait before next check
-    if (attempt < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, intervalMs));
-    }
+    // Wait before next attempt
+    await new Promise(resolve => setTimeout(resolve, intervalMs));
   }
   
-  console.log(`⏱️ Transaction confirmation timeout after ${maxAttempts} attempts`);
+  // Timeout
+  console.log(`⏰ Transaction ${txHash.slice(0, 10)}... timed out`);
   return 'timeout';
 }
 
 /**
  * Smart transaction monitoring
  * Tries waitForTransaction first (fast), then falls back to polling
+ * Phase 2: Updated to handle new status fields
  */
 export async function monitorTransaction(txHash: string): Promise<void> {
   try {
@@ -137,8 +166,16 @@ export async function monitorTransaction(txHash: string): Promise<void> {
     
     if (receipt) {
       const status = receipt.status === 1 ? 'success' : 'failed';
+      const confirmedAt = new Date().toISOString();
+      
       console.log(`✅ Transaction confirmed via waitForTransaction: ${status}`);
-      await updateTransactionStatus(txHash, status);
+      await updateTransactionStatus(
+        txHash,
+        status,
+        status === 'success' ? 'confirmed' : 'failed',
+        status === 'success' ? confirmedAt : undefined,
+        status === 'failed' ? 'Transaction failed on blockchain' : undefined
+      );
     } else {
       // Fallback to polling if waitForTransaction fails
       console.log('⚠️ waitForTransaction failed, falling back to polling...');

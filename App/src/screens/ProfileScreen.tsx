@@ -29,6 +29,7 @@ interface ProfileScreenProps {
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   const [walletAddress, setWalletAddress] = useState<string>('');
+  const [displayName, setDisplayName] = useState<string>('');
   const [merchantStatus, setMerchantStatus] = useState<boolean>(false);
   const [businessName, setBusinessName] = useState<string>('');
   const [biometricEnabled, setBiometricEnabled] = useState<boolean>(false);
@@ -39,6 +40,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 
   useEffect(() => {
     loadWalletAddress();
+    loadDisplayName();
     checkMerchantStatus();
     loadSettings();
     loadProfilePhoto();
@@ -48,6 +50,39 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     const address = await AsyncStorage.getItem('wallet_address');
     if (address) {
       setWalletAddress(address);
+    }
+  };
+
+  const loadDisplayName = async () => {
+    try {
+      const address = await AsyncStorage.getItem('wallet_address');
+      if (!address) return;
+
+      // Fetch display name from database first
+      const { data, error } = await supabase
+        .from('users')
+        .select('display_name')
+        .eq('wallet_address', address)
+        .single();
+
+      if (!error && data?.display_name) {
+        setDisplayName(data.display_name);
+        // Save to AsyncStorage for offline access
+        await AsyncStorage.setItem('display_name', data.display_name);
+      } else {
+        // Fallback to local storage
+        const localName = await AsyncStorage.getItem('display_name');
+        if (localName) {
+          setDisplayName(localName);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading display name:', error);
+      // Fallback to AsyncStorage
+      const localName = await AsyncStorage.getItem('display_name');
+      if (localName) {
+        setDisplayName(localName);
+      }
     }
   };
 
@@ -395,7 +430,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           </View>
         </TouchableOpacity>
         
-        <Text style={styles.profileName}>My Wallet</Text>
+        {displayName && <Text style={styles.profileName}>{displayName}</Text>}
         <Text style={styles.profileAddress}>
           {walletAddress.substring(0, 10)}...{walletAddress.substring(walletAddress.length - 8)}
         </Text>

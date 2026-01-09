@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sendOTP, verifyOTP, getDevPhoneNumber, getDevOTP, getRemainingAttempts } from '../services/auth';
 import { hasWallet } from '../services/wallet';
+import { supabase } from '../services/supabase';
 import { COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS, SHADOWS } from '../constants/theme';
 
 const FONT_SIZES = TYPOGRAPHY.sizes;
@@ -117,14 +118,78 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
     const result = await verifyOTP(verificationId, otp);
 
     if (result.success) {
-      // Save phone number
-      await AsyncStorage.setItem('phone_number', result.phoneNumber || phoneNumber);
+      const verifiedPhone = result.phoneNumber || phoneNumber;
+      
+      // Check if this is the development phone number
+      const devPhoneNumber = process.env.EXPO_PUBLIC_DEV_PHONE || '+911234567890';
+      const isDevPhone = verifiedPhone === devPhoneNumber;
+      
+      // Save phone number (even if dev, for local reference)
+      await AsyncStorage.setItem('phone_number', verifiedPhone);
       
       // Check if user already has a wallet (returning user after sign out)
       const walletExists = await hasWallet();
       
       if (walletExists) {
-        // Returning user - go directly to home (skip PIN creation)
+        // Returning user - verify phone matches stored wallet
+        const storedPhone = await AsyncStorage.getItem('phone_number');
+        const walletAddress = await AsyncStorage.getItem('wallet_address');
+        
+        // For dev phone, skip strict verification since it's not stored in DB
+        if (!isDevPhone) {
+          if (storedPhone !== verifiedPhone) {
+            // Phone number doesn't match - this might be a different account
+            Alert.alert(
+              'Account Mismatch',
+              'This phone number is not associated with the wallet on this device. Please use the correct phone number or create a new wallet.',
+              [
+                {
+                  text: 'Try Again',
+                  onPress: () => {
+                    setStep('phone');
+                    setOtp('');
+                    setPhoneNumber('');
+                  },
+                },
+              ]
+            );
+            setLoading(false);
+            return;
+          }
+          
+          // Verify with database that phone and wallet match (only for real phones)
+          const { data: userData, error: dbError } = await supabase
+            .from('users')
+            .select('wallet_address, phone_number')
+            .eq('phone_number', verifiedPhone)
+            .single();
+          
+          if (dbError || !userData) {
+            console.log('No database record found, using local data');
+          } else if (userData.wallet_address !== walletAddress) {
+            Alert.alert(
+              'Account Mismatch',
+              'This phone number is associated with a different wallet. Please use the correct phone number.',
+              [
+                {
+                  text: 'Try Again',
+                  onPress: () => {
+                    setStep('phone');
+                    setOtp('');
+                    setPhoneNumber('');
+                  },
+                },
+              ]
+            );
+            setLoading(false);
+            return;
+          }
+        } else {
+          // For dev phone, just verify wallet exists locally
+          console.log('Dev phone detected - skipping database verification');
+        }
+        
+        // Phone and wallet match - allow login
         Alert.alert('Welcome Back!', 'Phone verified successfully! ✓', [
           {
             text: 'Continue',
@@ -136,7 +201,9 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
         Alert.alert('Success', 'Phone number verified! ✓', [
           {
             text: 'Continue',
-            onPress: () => navigation.replace('CreatePIN'),
+            onPress: () => navigation.replace('CreatePIN', {
+              phoneNumber: verifiedPhone,
+            }),
           },
         ]);
       }
@@ -525,10 +592,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: SPACING.xl,
-    gap: SPACING.sm,
   },
   securityIcon: {
     fontSize: 16,
+    marginRight: SPACING.sm,
   },
   securityText: {
     fontSize: FONT_SIZES.sm,

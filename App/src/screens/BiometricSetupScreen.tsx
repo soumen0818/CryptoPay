@@ -32,11 +32,12 @@ export const BiometricSetupScreen: React.FC<BiometricSetupScreenProps> = ({
   const [biometricType, setBiometricType] = useState<string>('');
   const [isAvailable, setIsAvailable] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [permissionIntroShown, setPermissionIntroShown] = useState(false);
 
   // Get icon and description based on biometric type
   const getBiometricIcon = () => {
     if (biometricType.includes('Face')) return '😊';
-    if (biometricType.includes('Fingerprint')) return '👆';
+    if (biometricType.includes('Fingerprint') || biometricType.includes('Touch')) return '👆';
     if (biometricType.includes('Iris')) return '👁️';
     return '🔐';
   };
@@ -45,10 +46,18 @@ export const BiometricSetupScreen: React.FC<BiometricSetupScreenProps> = ({
     if (biometricType.includes('Face')) {
       return 'Use facial recognition for quick and secure access to your wallet. Just look at your phone to unlock.';
     }
-    if (biometricType.includes('Fingerprint')) {
+    if (biometricType.includes('Fingerprint') || biometricType.includes('Touch')) {
       return 'Use your fingerprint for quick and secure access to your wallet. Just touch the sensor to unlock.';
     }
+    if (biometricType.includes('Iris')) {
+      return 'Use iris scanning for quick and secure access to your wallet.';
+    }
     return 'Use biometric authentication for quick and secure access to your wallet.';
+  };
+
+  const getBiometricName = () => {
+    // Return the exact biometric type detected
+    return biometricType || 'Biometrics';
   };
 
   useEffect(() => {
@@ -67,14 +76,35 @@ export const BiometricSetupScreen: React.FC<BiometricSetupScreenProps> = ({
 
   const requestAppPermissions = async () => {
     try {
-      // Check if permissions already granted, only request if needed
-      const { status: cameraStatus } = await Camera.getCameraPermissionsAsync();
-      if (cameraStatus !== 'granted') {
+      const cameraPerm = await Camera.getCameraPermissionsAsync();
+      const locationPerm = await Location.getForegroundPermissionsAsync();
+
+      const needsCamera = !cameraPerm.granted && cameraPerm.canAskAgain;
+      const needsLocation = !locationPerm.granted && locationPerm.canAskAgain;
+
+      if ((needsCamera || needsLocation) && !permissionIntroShown) {
+        const proceed = await new Promise<boolean>((resolve) => {
+          Alert.alert(
+            'Permissions Needed',
+            'CryptoPay uses Camera for QR scanning and Location for network features. We will ask once now.',
+            [
+              { text: 'Not Now', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Continue', onPress: () => resolve(true) },
+            ]
+          );
+        });
+
+        setPermissionIntroShown(true);
+        await AsyncStorage.setItem('permission_intro_shown', 'true');
+
+        if (!proceed) return;
+      }
+
+      if (needsCamera) {
         await Camera.requestCameraPermissionsAsync();
       }
-      
-      const { status: locationStatus } = await Location.getForegroundPermissionsAsync();
-      if (locationStatus !== 'granted') {
+
+      if (needsLocation) {
         await Location.requestForegroundPermissionsAsync();
       }
     } catch (error) {
@@ -110,9 +140,10 @@ export const BiometricSetupScreen: React.FC<BiometricSetupScreenProps> = ({
           console.log('Failed to update Supabase, continuing...', dbError);
         }
 
+        // Show success message with the actual biometric type
         Alert.alert(
           '✅ Success!',
-          `${biometricType} has been enabled for your wallet`,
+          `${biometricType} authentication has been enabled for your wallet`,
           [
             {
               text: 'Continue',
@@ -148,7 +179,7 @@ export const BiometricSetupScreen: React.FC<BiometricSetupScreenProps> = ({
 
           {/* Title */}
           <Text style={styles.title}>
-            {isAvailable ? `Enable ${biometricType}` : 'All Set!'}
+            {isAvailable ? `Enable ${getBiometricName()}` : 'All Set!'}
           </Text>
 
           {/* Description */}
@@ -189,11 +220,12 @@ export const BiometricSetupScreen: React.FC<BiometricSetupScreenProps> = ({
                 <ActivityIndicator color={COLORS.card} />
               ) : (
                 <Text style={styles.primaryButtonText}>
-                  Enable {biometricType}
+                  Enable Authentication
                 </Text>
               )}
             </TouchableOpacity>
           )}
+  const biometricName = getBiometricName();
 
           <TouchableOpacity
             style={[styles.secondaryButton, !isAvailable && styles.primaryButton]}
@@ -286,7 +318,6 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     width: '100%',
-    gap: SPACING.md,
     marginTop: SPACING.xl,
   },
   primaryButton: {
@@ -308,6 +339,7 @@ const styles = StyleSheet.create({
     paddingVertical: isSmallDevice ? SPACING.md : SPACING.lg,
     borderRadius: 14,
     alignItems: 'center',
+    marginTop: SPACING.md,
   },
   secondaryButtonText: {
     color: COLORS.textSecondary,
