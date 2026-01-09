@@ -12,9 +12,28 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { ethers } = require('ethers');
+const nodemailer = require('nodemailer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Email configuration (for low balance alerts)
+let emailTransporter = null;
+if (process.env.ALERT_EMAIL && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+  emailTransporter = nodemailer.createTransport({
+    service: 'gmail', // or 'outlook', 'yahoo', etc.
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS // Use App Password for Gmail
+    }
+  });
+  console.log('📧 Email alerts enabled');
+} else {
+  console.log('⚠️ Email alerts disabled (missing EMAIL_USER or EMAIL_PASS)');
+}
+
+// Track if low balance alert was already sent (to avoid spam)
+let lowBalanceAlertSent = false;
 
 // Middleware
 app.use(helmet());
@@ -74,12 +93,24 @@ app.get('/health', async (req, res) => {
   try {
     const balance = await provider.getBalance(relayerWallet.address);
     const balanceMatic = ethers.formatEther(balance);
+    const threshold = parseFloat(process.env.LOW_BALANCE_THRESHOLD || '1');
+    const isLowBalance = parseFloat(balanceMatic) < threshold;
+    
+    // Send email alert if balance is low and alert not sent yet
+    if (isLowBalance && !lowBalanceAlertSent && emailTransporter) {
+      sendLowBalanceAlert(balanceMatic, threshold);
+      lowBalanceAlertSent = true;
+    } else if (!isLowBalance && lowBalanceAlertSent) {
+      // Reset flag when balance is topped up
+      lowBalanceAlertSent = false;
+    }
     
     res.json({
       status: 'healthy',
       relayer: relayerWallet.address,
       balance: `${balanceMatic} MATIC`,
-      lowBalance: parseFloat(balanceMatic) < parseFloat(process.env.LOW_BALANCE_THRESHOLD || '1'),
+      lowBalance: isLowBalance,
+      threshold: `${threshold} MATIC`,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -89,6 +120,64 @@ app.get('/health', async (req, res) => {
     });
   }
 });
+
+/**
+ * Send low balance email alert
+ */
+async function sendLowBalanceAlert(currentBalance, threshold) {
+  if (!emailTransporter) return;
+  
+  try {
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: process.env.ALERT_EMAIL,
+      subject: '🚨 CryptoPay Relayer - Low MATIC Balance Alert',
+      html: `
+        <h2>⚠️ Relayer Wallet Low Balance Warning</h2>
+        <p>Your CryptoPay relayer wallet is running low on MATIC tokens.</p>
+        
+        <table style="border-collapse: collapse; margin: 20px 0;">
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd;"><strong>Current Balance:</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">${currentBalance} MATIC</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd;"><strong>Threshold:</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">${threshold} MATIC</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd;"><strong>Relayer Address:</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;"><code>${relayerWallet.address}</code></td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd;"><strong>Time:</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">${new Date().toLocaleString()}</td>
+          </tr>
+        </table>
+        
+        <h3>Action Required:</h3>
+        <ol>
+          <li><strong>Testnet:</strong> Get free MATIC from <a href="https://faucet.polygon.technology/">Polygon Faucet</a></li>
+          <li><strong>Mainnet:</strong> Transfer MATIC to the relayer address above</li>
+          <li>Estimated transactions remaining: ~${Math.floor(parseFloat(currentBalance) / 0.005)}</li>
+        </ol>
+        
+        <p style="color: red;"><strong>⚠️ Gasless transactions will fail when balance reaches 0!</strong></p>
+        
+        <hr>
+        <p style="color: #666; font-size: 12px;">
+          This is an automated alert from your CryptoPay Relayer Service.<br>
+          You will not receive another alert until the balance is topped up and drops below the threshold again.
+        </p>
+      `
+    };
+    
+    await emailTransporter.sendMail(mailOptions);
+    console.log(`📧 Low balance alert sent to ${process.env.ALERT_EMAIL}`);
+  } catch (error) {
+    console.error('❌ Failed to send email alert:', error.message);
+  }
+}
 
 // Relay meta-transaction endpoint
 app.post('/relay', async (req, res) => {
@@ -148,8 +237,8 @@ app.post('/relay', async (req, res) => {
     
     console.log(`📤 Relaying transaction: ${from} → ${to} (${amount} PAY)`);
     
-    // Execute meta-transaction (relayer pays gas)
-    const tx = await payTokenContract.executeMetaTransaction(
+    // Optimize gas to reduce costs
+    const gasEstimate = await payTokenContract.executeMetaTransaction.estimateGas(
       from,
       to,
       amountBigInt,
@@ -157,10 +246,38 @@ app.post('/relay', async (req, res) => {
       signature
     );
     
+    // Add 20% buffer to gas estimate
+    const gasLimit = (gasEstimate * 120n) / 100n;
+    
+    // Execute meta-transaction with optimized gas settings
+    const tx = await payTokenContract.executeMetaTransaction(
+      from,
+      to,
+      amountBigInt,
+      nonce,
+      signature,
+      {
+        gasLimit: gasLimit, // Use estimated gas with buffer
+        maxFeePerGas: ethers.parseUnits('50', 'gwei'), // Cap max fee
+        maxPriorityFeePerGas: ethers.parseUnits('30', 'gwei') // Cap priority fee
+      }
+    );
+    
     console.log(`⏳ Transaction submitted: ${tx.hash}`);
+    console.log(`⛽ Gas limit set: ${gasLimit.toString()} (estimate was ${gasEstimate.toString()})`);
+    
+    // Check balance after transaction
+    checkBalanceAndAlert();
+    
+    // Wait for confirmation in background (don't block response)
+    tx.wait().then((receipt) => {
+      console.log(`✅ Transaction confirmed: ${receipt.hash} (Block ${receipt.blockNumber})`);
+    }).catch((error) => {
+      console.error(`❌ Transaction failed in background:`, error);
+    });
     
     // Return immediately (don't wait for confirmation)
-    res.json({
+    return res.json({
       success: true,
       txHash: tx.hash,
       from: from,
@@ -170,30 +287,13 @@ app.post('/relay', async (req, res) => {
       relayer: relayerWallet.address,
       timestamp: new Date().toISOString()
     });
-    
-    // Wait for confirmation in background
-    tx.wait().then((receipt) => {
-      console.log(`✅ Transaction confirmed: ${receipt.hash} (Block ${receipt.blockNumber})`);
-    }).catch((error) => {
-      console.error(`❌ Transaction failed: ${tx.hash}`, error);
-    });
-    
+
   } catch (error) {
-    console.error('❌ Relay error:', error);
-    
-    // Map errors to user-friendly messages
-    let errorMessage = 'Transaction failed';
-    if (error.message?.includes('Invalid signature')) {
-      errorMessage = 'Invalid signature';
-    } else if (error.message?.includes('Invalid nonce')) {
-      errorMessage = 'Invalid nonce - transaction already processed';
-    } else if (error.message?.includes('insufficient funds')) {
-      errorMessage = 'Insufficient balance';
-    }
+    console.error('❌ Transfer error:', error);
     
     res.status(500).json({
-      error: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      success: false,
+      error: error.message || 'Transaction failed'
     });
   }
 });
@@ -350,15 +450,38 @@ app.get('/stats', async (req, res) => {
     res.json({
       relayer: relayerWallet.address,
       balance: ethers.formatEther(balance),
-      currentBlock: blockNumber,
-      chainId: process.env.CHAIN_ID,
-      uptime: process.uptime(),
+      blockNumber: blockNumber,
+      network: 'Polygon Amoy Testnet',
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Stats error:', error);
+    res.status(500).json({ error: 'Failed to get stats' });
   }
 });
+
+// Periodic balance check (every 5 minutes)
+setInterval(checkBalanceAndAlert, 5 * 60 * 1000);
+
+async function checkBalanceAndAlert() {
+  try {
+    const balance = await provider.getBalance(relayerWallet.address);
+    const balanceMatic = parseFloat(ethers.formatEther(balance));
+    const threshold = parseFloat(process.env.LOW_BALANCE_THRESHOLD || '1');
+    
+    console.log(`⛽ Current relayer balance: ${balanceMatic.toFixed(4)} MATIC`);
+    
+    if (balanceMatic < threshold && !lowBalanceAlertSent && emailTransporter) {
+      await sendLowBalanceAlert(balanceMatic, threshold);
+      lowBalanceAlertSent = true;
+    } else if (balanceMatic >= threshold && lowBalanceAlertSent) {
+      lowBalanceAlertSent = false;
+      console.log('✅ Balance restored above threshold');
+    }
+  } catch (error) {
+    console.error('❌ Balance check error:', error.message);
+  }
+}
 
 // Error handler
 app.use((err, req, res, next) => {
