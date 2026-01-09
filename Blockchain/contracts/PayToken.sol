@@ -150,6 +150,58 @@ contract PayToken is ERC20, Ownable {
     }
     
     /**
+     * @dev Execute gasless faucet claim via meta-transaction
+     * Only callable by trusted relayer. Relayer pays gas, user signs message.
+     * 
+     * @param user User's address claiming faucet
+     * @param nonce Nonce to prevent replay attacks
+     * @param signature User's signature of the message
+     */
+    function executeMetaFaucet(
+        address user,
+        uint256 nonce,
+        bytes calldata signature
+    ) external returns (bool) {
+        require(msg.sender == relayer, "Only relayer can execute meta-faucet");
+        require(nonce == nonces[user], "Invalid nonce");
+        require(user != address(0), "Invalid user address");
+        require(
+            block.timestamp >= lastFaucetClaim[user] + FAUCET_COOLDOWN,
+            "Faucet: Please wait 24 hours between claims"
+        );
+        
+        // Construct message hash (what user signed)
+        bytes32 messageHash = keccak256(
+            abi.encodePacked(
+                user,
+                FAUCET_AMOUNT,
+                nonce,
+                address(this) // Include contract address
+            )
+        );
+        
+        // Verify signature
+        bytes32 ethSignedMessageHash = keccak256(
+            abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
+        );
+        address signer = ECDSA.recover(ethSignedMessageHash, signature);
+        require(signer == user, "Invalid signature");
+        
+        // Increment nonce
+        nonces[user]++;
+        
+        // Update faucet claim timestamp
+        lastFaucetClaim[user] = block.timestamp;
+        
+        // Mint tokens to user
+        _mint(user, FAUCET_AMOUNT);
+        
+        emit FaucetClaimed(user, FAUCET_AMOUNT);
+        
+        return true;
+    }
+    
+    /**
      * @dev Owner can mint additional tokens if needed
      */
     function mint(address to, uint256 amount) external onlyOwner {
