@@ -32,9 +32,12 @@ app.use('/relay', limiter);
 // PayToken ABI (only functions we need)
 const PAY_TOKEN_ABI = [
   "function executeMetaTransaction(address from, address to, uint256 amount, uint256 nonce, bytes signature) external returns (bool)",
+  "function executeMetaFaucet(address user, uint256 nonce, bytes signature) external returns (bool)",
   "function getNonce(address account) external view returns (uint256)",
   "function balanceOf(address account) external view returns (uint256)",
-  "event MetaTransactionExecuted(address indexed from, address indexed to, uint256 amount, uint256 nonce)"
+  "function canClaimFaucet(address account) external view returns (bool)",
+  "event MetaTransactionExecuted(address indexed from, address indexed to, uint256 amount, uint256 nonce)",
+  "event FaucetClaimed(address indexed recipient, uint256 amount)"
 ];
 
 // Initialize blockchain connection
@@ -186,6 +189,102 @@ app.post('/relay', async (req, res) => {
       errorMessage = 'Invalid nonce - transaction already processed';
     } else if (error.message?.includes('insufficient funds')) {
       errorMessage = 'Insufficient balance';
+    }
+    
+    res.status(500).json({
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Gasless faucet claim endpoint
+app.post('/faucet', limiter, async (req, res) => {
+  try {
+    const { user, nonce, signature } = req.body;
+    
+    // Validate input
+    if (!user || nonce === undefined || !signature) {
+      return res.status(400).json({
+        error: 'Missing required fields: user, nonce, signature'
+      });
+    }
+    
+    // Validate Ethereum address
+    if (!ethers.isAddress(user)) {
+      return res.status(400).json({ error: 'Invalid user address' });
+    }
+    
+    console.log(`🚰 Faucet claim request from: ${user}`);
+    
+    // Check if user can claim
+    const canClaim = await payTokenContract.canClaimFaucet(user);
+    if (!canClaim) {
+      return res.status(400).json({
+        error: 'Please wait 24 hours between faucet claims'
+      });
+    }
+    
+    // Verify nonce matches
+    const expectedNonce = await payTokenContract.getNonce(user);
+    if (BigInt(nonce) !== expectedNonce) {
+      return res.status(400).json({
+        error: 'Invalid nonce',
+        expected: expectedNonce.toString(),
+        received: nonce
+      });
+    }
+    
+    // Check relayer has enough MATIC for gas
+    const balance = await provider.getBalance(relayerWallet.address);
+    const minGasBalance = ethers.parseEther('0.001'); // Need at least 0.001 MATIC
+    if (balance < minGasBalance) {
+      console.error('⚠️ Low relayer balance:', ethers.formatEther(balance));
+      return res.status(503).json({
+        error: 'Service temporarily unavailable - low gas balance'
+      });
+    }
+    
+    // Execute meta-faucet transaction
+    console.log(`📝 Executing gasless faucet for: ${user}`);
+    const tx = await payTokenContract.executeMetaFaucet(
+      user,
+      nonce,
+      signature
+    );
+    
+    console.log(`⏳ Faucet transaction submitted: ${tx.hash}`);
+    
+    // Return immediately
+    res.json({
+      success: true,
+      txHash: tx.hash,
+      user: user,
+      amount: '100', // 100 PAY tokens
+      nonce: nonce,
+      relayer: relayerWallet.address,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Wait for confirmation in background
+    tx.wait().then((receipt) => {
+      console.log(`✅ Faucet claim confirmed: ${receipt.hash} (Block ${receipt.blockNumber})`);
+      console.log(`🎉 User ${user} received 100 PAY tokens`);
+    }).catch((error) => {
+      console.error(`❌ Faucet transaction failed: ${tx.hash}`, error);
+    });
+    
+  } catch (error) {
+    console.error('❌ Faucet error:', error);
+    
+    // Map errors to user-friendly messages
+    let errorMessage = 'Faucet claim failed';
+    if (error.message?.includes('Invalid signature')) {
+      errorMessage = 'Invalid signature';
+    } else if (error.message?.includes('Invalid nonce')) {
+      errorMessage = 'Invalid nonce - please refresh and try again';
+    } else if (error.message?.includes('wait 24 hours')) {
+      errorMessage = 'Please wait 24 hours between claims';
     }
     
     res.status(500).json({
