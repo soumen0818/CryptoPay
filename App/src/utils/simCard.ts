@@ -25,15 +25,13 @@ export async function hasSIMCard(): Promise<boolean> {
 
 /**
  * Get phone number from device (may not always be available)
+ * Note: getPhoneNumber() is not available in react-native-device-info
+ * Phone number access is restricted on modern Android/iOS for privacy
  */
 export async function getDevicePhoneNumber(): Promise<string | null> {
-  try {
-    const phoneNumber = await DeviceInfo.getPhoneNumber();
-    return phoneNumber || null;
-  } catch (error) {
-    console.error('Error getting phone number:', error);
-    return null;
-  }
+  // Phone number is not accessible via DeviceInfo on modern devices
+  // Users must manually enter their phone number
+  return null;
 }
 
 /**

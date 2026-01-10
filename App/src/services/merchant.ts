@@ -5,6 +5,11 @@ export interface Merchant {
   id?: string;
   business_name: string;
   wallet_address: string;
+  owner_name?: string;
+  email?: string;
+  phone_number?: string;
+  business_address?: string;
+  business_registration_number?: string;
   description?: string;
   category?: string;
   logo_url?: string;
@@ -184,96 +189,49 @@ export async function updateMerchantProfile(
 }
 
 /**
+ * @deprecated QR codes are now generated on-the-fly and not stored in database.
+ * This function is kept for backward compatibility but should not be used.
  * Create a merchant QR code
  */
 export async function createMerchantQRCode(
   qrCode: MerchantQRCode
 ): Promise<{ success: boolean; qrCodeId?: string; error?: string }> {
-  try {
-    const { data, error } = await supabase
-      .from('merchant_qr_codes')
-      .insert(qrCode)
-      .select()
-      .single();
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    return { success: true, qrCodeId: data.id };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
+  // DEPRECATED: QR codes are generated on-the-fly now
+  console.warn('createMerchantQRCode is deprecated. QR codes are generated on-the-fly.');
+  return { success: false, error: 'QR code storage is deprecated' };
 }
 
 /**
+ * @deprecated QR codes are now generated on-the-fly and not stored in database.
  * Get all QR codes for a merchant
  */
 export async function getMerchantQRCodes(
   merchantId: string
 ): Promise<MerchantQRCode[]> {
-  try {
-    const { data, error } = await supabase
-      .from('merchant_qr_codes')
-      .select('*')
-      .eq('merchant_id', merchantId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error getting merchant QR codes:', error);
-      return [];
-    }
-
-    return data || [];
-  } catch (error) {
-    console.error('Error getting merchant QR codes:', error);
-    return [];
-  }
+  // DEPRECATED: QR codes are generated on-the-fly now
+  console.warn('getMerchantQRCodes is deprecated. QR codes are generated on-the-fly.');
+  return [];
 }
 
 /**
+ * @deprecated QR codes are now generated on-the-fly and not stored in database.
  * Update QR code status
  */
 export async function updateQRCodeStatus(
   qrCodeId: string,
   isActive: boolean
 ): Promise<void> {
-  try {
-    const { error } = await supabase
-      .from('merchant_qr_codes')
-      .update({ is_active: isActive })
-      .eq('id', qrCodeId);
-
-    if (error) {
-      throw new Error(error.message);
-    }
-  } catch (error) {
-    console.error('Error updating QR code status:', error);
-    throw error;
-  }
+  // DEPRECATED: QR codes are generated on-the-fly now
+  console.warn('updateQRCodeStatus is deprecated. QR codes are generated on-the-fly.');
 }
 
 /**
+ * @deprecated QR codes are now generated on-the-fly and not stored in database.
  * Increment QR code scan count
  */
 export async function incrementQRScanCount(qrCodeId: string): Promise<void> {
-  try {
-    // Get current scan count
-    const { data } = await supabase
-      .from('merchant_qr_codes')
-      .select('scan_count')
-      .eq('id', qrCodeId)
-      .single();
-
-    if (data) {
-      await supabase
-        .from('merchant_qr_codes')
-        .update({ scan_count: (data.scan_count || 0) + 1 })
-        .eq('id', qrCodeId);
-    }
-  } catch (error) {
-    console.error('Error incrementing scan count:', error);
-  }
+  // DEPRECATED: QR codes are generated on-the-fly now
+  console.warn('incrementQRScanCount is deprecated. QR codes are generated on-the-fly.');
 }
 
 /**
@@ -282,6 +240,7 @@ export async function incrementQRScanCount(qrCodeId: string): Promise<void> {
 export async function getMerchantAnalytics(merchantId: string): Promise<{
   totalTransactions: number;
   totalRevenue: string;
+  successTransactions: number;
   pendingTransactions: number;
 }> {
   try {
@@ -292,19 +251,33 @@ export async function getMerchantAnalytics(merchantId: string): Promise<{
       .single();
 
     if (!merchant.data) {
-      return { totalTransactions: 0, totalRevenue: '0', pendingTransactions: 0 };
+      return { 
+        totalTransactions: 0, 
+        totalRevenue: '0', 
+        successTransactions: 0,
+        pendingTransactions: 0 
+      };
     }
 
     const { data: transactions } = await supabase
       .from('transactions')
-      .select('amount, status')
-      .eq('to_address', merchant.data.wallet_address);
+      .select('amount, status, transaction_type')
+      .eq('to_address', merchant.data.wallet_address)
+      .eq('transaction_type', 'merchant');  // Only count merchant QR payments
 
     if (!transactions) {
-      return { totalTransactions: 0, totalRevenue: '0', pendingTransactions: 0 };
+      return { 
+        totalTransactions: 0, 
+        totalRevenue: '0',
+        successTransactions: 0, 
+        pendingTransactions: 0 
+      };
     }
 
     const totalTransactions = transactions.length;
+    const successTransactions = transactions.filter(
+      (tx) => tx.status === 'success'
+    ).length;
     const totalRevenue = transactions
       .filter((tx) => tx.status === 'success')
       .reduce((sum, tx) => sum + parseFloat(tx.amount), 0)
@@ -313,9 +286,70 @@ export async function getMerchantAnalytics(merchantId: string): Promise<{
       (tx) => tx.status === 'pending'
     ).length;
 
-    return { totalTransactions, totalRevenue, pendingTransactions };
+    return { 
+      totalTransactions, 
+      totalRevenue, 
+      successTransactions,
+      pendingTransactions 
+    };
   } catch (error) {
     console.error('Error getting merchant analytics:', error);
-    return { totalTransactions: 0, totalRevenue: '0', pendingTransactions: 0 };
+    return { 
+      totalTransactions: 0, 
+      totalRevenue: '0',
+      successTransactions: 0, 
+      pendingTransactions: 0 
+    };
+  }
+}
+
+/**
+ * Get recent merchant transactions
+ */
+export interface MerchantTransaction {
+  id: string;
+  transaction_id: string;
+  tx_hash: string;
+  from_address: string;
+  to_address: string;
+  amount: string;
+  status: 'pending' | 'success' | 'failed';
+  created_at: string;
+  merchant_name?: string;
+  sender_name?: string;
+}
+
+export async function getMerchantTransactions(
+  merchantId: string, 
+  limit: number = 10
+): Promise<MerchantTransaction[]> {
+  try {
+    const merchant = await supabase
+      .from('merchants')
+      .select('wallet_address')
+      .eq('id', merchantId)
+      .single();
+
+    if (!merchant.data) {
+      return [];
+    }
+
+    const { data: transactions, error } = await supabase
+      .from('transactions')
+      .select('id, transaction_id, tx_hash, from_address, to_address, amount, status, created_at, merchant_name, sender_name, transaction_type')
+      .eq('to_address', merchant.data.wallet_address)
+      .eq('transaction_type', 'merchant')  // Only show payments via merchant QR
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('Error fetching merchant transactions:', error);
+      return [];
+    }
+
+    return transactions || [];
+  } catch (error) {
+    console.error('Error getting merchant transactions:', error);
+    return [];
   }
 }

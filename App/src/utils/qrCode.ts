@@ -87,9 +87,9 @@ export function validatePaymentQR(data: PaymentQRData): {
     return { valid: false, error: 'Invalid merchant address' };
   }
 
-  // Validate amount
+  // Validate amount - allow '0' for variable amount merchant QR codes
   const amount = parseFloat(data.amount);
-  if (isNaN(amount) || amount <= 0) {
+  if (isNaN(amount) || amount < 0) {
     return { valid: false, error: 'Invalid amount' };
   }
 

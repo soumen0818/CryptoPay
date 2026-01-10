@@ -2,7 +2,7 @@ import { ethers } from 'ethers';
 
 const RPC_URL = process.env.EXPO_PUBLIC_RPC_URL || 'https://rpc-amoy.polygon.technology';
 const TOKEN_ADDRESS = process.env.EXPO_PUBLIC_TOKEN_ADDRESS || '';
-const RELAYER_URL = process.env.EXPO_PUBLIC_RELAYER_URL || 'http://10.64.216.86:3000'; // Path B - Advanced
+const RELAYER_URL = process.env.EXPO_PUBLIC_RELAYER_URL || 'https://cryptopay-relayer.onrender.com'; // Path B - Advanced
 
 // ERC-20 + Faucet + Meta-Transaction ABI
 const TOKEN_ABI = [

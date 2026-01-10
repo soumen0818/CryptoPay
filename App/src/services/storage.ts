@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 
 export interface Transaction {
   id?: string;
+  transaction_id?: string; // Unique readable ID like TXN-XXXXXXXX
   user_id?: string;
   tx_hash: string;
   to_address: string;
@@ -12,15 +13,52 @@ export interface Transaction {
   // Phase 2: Invisible Rail - Two-tier status system
   internal_status?: 'processing' | 'submitted' | 'confirmed' | 'failed';
   user_visible_status?: 'success' | 'failed';
-  merchant_name?: string;
+  // Transaction type: personal (P2P) or merchant (business payment)
+  transaction_type?: 'personal' | 'merchant';
+  merchant_id?: string; // Reference to merchant if transaction_type is 'merchant'
+  merchant_name?: string; // Business name (for backward compatibility)
+  note?: string; // Optional payment note
+  sender_name?: string; // Name of the person who sent the payment
+  recipient_name?: string; // Name of recipient (person or business)
   created_at?: string;
   submitted_at?: string; // When user clicked "Pay"
   confirmed_at?: string; // When blockchain confirmed
   failure_reason?: string; // User-friendly error message
 }
 
+/**
+ * Generate a unique transaction ID like TXN-XXXXXXXX
+ */
+export function generateTransactionId(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = 'TXN-';
+  for (let i = 0; i < 8; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
 // Hybrid storage: Local (AsyncStorage) + Cloud (Supabase)
 // Works offline, syncs when online
+
+// Helper function to get user's display name from Supabase by wallet address
+export async function getUserDisplayName(walletAddress: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('display_name')
+      .eq('wallet_address', walletAddress)
+      .single();
+
+    if (data && !error) {
+      return data.display_name;
+    }
+    return null;
+  } catch (error) {
+    console.log('Error fetching user display name:', error);
+    return null;
+  }
+}
 
 // Helper function to get or create user in Supabase
 async function getOrCreateUser(walletAddress: string, phoneNumber?: string, displayName?: string): Promise<string | null> {
@@ -66,11 +104,13 @@ export async function saveTransaction(tx: Transaction): Promise<void> {
     const existing = await AsyncStorage.getItem('transactions');
     const txs = existing ? JSON.parse(existing) : [];
     
-    // Add timestamp if not present
+    // Add timestamp and transaction_id if not present
     const txWithTime = {
       ...tx,
       created_at: tx.created_at || new Date().toISOString(),
       id: tx.id || tx.tx_hash,
+      transaction_id: tx.transaction_id || generateTransactionId(),
+      transaction_type: tx.transaction_type || 'personal',
     };
     
     txs.unshift(txWithTime);
@@ -91,8 +131,24 @@ export async function saveTransaction(tx: Transaction): Promise<void> {
         userId = await getOrCreateUser(tx.from_address, phoneNumber || undefined, displayName || undefined);
       }
 
+      // Generate transaction_id if not present
+      const transactionId = tx.transaction_id || generateTransactionId();
+
+      // Get sender's display name from users table in database
+      let senderName = tx.sender_name || null;
+      if (!senderName && tx.from_address) {
+        senderName = await getUserDisplayName(tx.from_address);
+      }
+      // Fallback to AsyncStorage if not found in database
+      if (!senderName) {
+        senderName = await AsyncStorage.getItem('user_name');
+      }
+
       const { data, error } = await supabase.from('transactions').insert({
         user_id: userId,
+        transaction_id: transactionId,
+        transaction_type: tx.transaction_type || 'personal',
+        merchant_id: tx.merchant_id || null,
         tx_hash: tx.tx_hash,
         to_address: tx.to_address,
         from_address: tx.from_address || '',
@@ -101,8 +157,12 @@ export async function saveTransaction(tx: Transaction): Promise<void> {
         internal_status: tx.internal_status || 'processing',
         user_visible_status: tx.user_visible_status || 'success',
         merchant_name: tx.merchant_name,
-        created_at: tx.created_at,
-        submitted_at: tx.submitted_at || tx.created_at || new Date().toISOString(),
+        note: tx.note || null,
+        sender_name: senderName || null,
+        recipient_name: tx.recipient_name || tx.merchant_name || null,
+        // Use current timestamp - Supabase will store in UTC
+        created_at: new Date().toISOString(),
+        submitted_at: tx.submitted_at || new Date().toISOString(),
         confirmed_at: tx.confirmed_at,
         failure_reason: tx.failure_reason,
       }).select();
