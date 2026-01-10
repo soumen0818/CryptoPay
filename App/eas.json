@@ -15,7 +15,16 @@
         "gradleCommand": ":app:assembleRelease"
       },
       "env": {
-        "NODE_OPTIONS": "--max-old-space-size=4096"
+        "NODE_OPTIONS": "--max-old-space-size=4096",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://dilsljhgrcxvevzzagrg.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_q8N3NJ4rnzYa2eMZNQ4yxA_DPLtggCw",
+        "EXPO_PUBLIC_RPC_URL": "https://rpc-amoy.polygon.technology",
+        "EXPO_PUBLIC_CHAIN_ID": "80002",
+        "EXPO_PUBLIC_TOKEN_ADDRESS": "0x98BE2863435E05d9E6FF8A488A54Be9aA2a0469b",
+        "EXPO_PUBLIC_RELAYER_URL": "https://cryptopay-relayer.onrender.com",
+        "EXPO_PUBLIC_DEV_MODE": "false",
+        "EXPO_PUBLIC_DEV_PHONE": "+911234567890",
+        "EXPO_PUBLIC_DEV_OTP": "123456"
       }
     },
     "production": {

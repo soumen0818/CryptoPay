@@ -5,6 +5,8 @@ node_modules/
 
 .env
 
+database-schema
+
 docs
 
 # Expo
