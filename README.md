@@ -1,14 +1,7 @@
-<div
 
 # ⚡ CryptoPay - UPI for Web3
 
 > Making blockchain payments as simple as scanning a QR code. No crypto knowledge required.
-
-<div align="center">
-
-![CryptoPay Logo](App/assets/cpay_logo.png)
-
-</div>
 
 [![React Native](https://img.shields.io/badge/React%20Native-0.81-blue.svg)](https://reactnative.dev/)
 [![Expo](https://img.shields.io/badge/Expo-54-black.svg)](https://expo.dev/)
