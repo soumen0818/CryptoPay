@@ -21,7 +21,9 @@ import { startTransactionPolling, stopTransactionPolling } from '../services/tra
 import { authenticateWithBiometric, authenticateWithPIN } from '../utils/biometric';
 import { getTransactions, Transaction } from '../services/storage';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS } from '../constants/theme';
-import { Card, Button, LoadingSpinner, EmptyState, TransactionItem } from '../components';
+import { convertPAYtoINR } from '../utils/currency';
+import { Card, Button, LoadingSpinner, EmptyState, TransactionItem, TransactionDetailModal } from '../components';
+import type { TransactionDetail } from '../components/TransactionDetailModal';
 
 interface HomeScreenProps {
   navigation: any;
@@ -33,6 +35,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [selectedTransaction, setSelectedTransaction] = useState<TransactionDetail | null>(null);
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
   const fadeAnim = useState(new Animated.Value(0))[0];
   const slideAnim = useState(new Animated.Value(50))[0];
 
@@ -106,7 +110,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     try {
       const txs = await getTransactions();
       // Get last 5 transactions
-      setTransactions(txs.slice(0, 5));
+      setTransactions(txs.slice(0, 10));
     } catch (error) {
       console.error('Error loading transactions:', error);
     }
@@ -300,7 +304,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <Text style={styles.balanceCurrency}>PAY</Text>
           </View>
           
-          <Text style={styles.balanceUsd}>≈ ₹{(parseFloat(balance) * 0.85).toFixed(2)} INR</Text>
+          <Text style={styles.balanceUsd}>≈ ₹{convertPAYtoINR(parseFloat(balance)).toFixed(2)} INR</Text>
         </LinearGradient>
       </Animated.View>
 
@@ -370,6 +374,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   created_at: transaction.created_at || new Date().toISOString(),
                 }}
                 currentWallet={walletAddress}
+                onPress={() => {
+                  setSelectedTransaction({
+                    ...transaction,
+                    id: transaction.id || transaction.tx_hash,
+                    created_at: transaction.created_at || new Date().toISOString(),
+                  });
+                  setShowTransactionModal(true);
+                }}
               />
             ))}
           </View>
@@ -386,6 +398,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </Text>
         </View>
       </View>
+
+      {/* Transaction Detail Modal */}
+      <TransactionDetailModal
+        visible={showTransactionModal}
+        transaction={selectedTransaction}
+        onClose={() => {
+          setShowTransactionModal(false);
+          setSelectedTransaction(null);
+        }}
+        currentWallet={walletAddress}
+      />
     </ScrollView>
   );
 };
