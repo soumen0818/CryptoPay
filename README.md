@@ -1,63 +1,488 @@
+<div
+
 # ⚡ CryptoPay - UPI for Web3
 
-> A mobile-first blockchain payment app that makes crypto as simple as UPI. Scan, authenticate, pay.
+> Making blockchain payments as simple as scanning a QR code. No crypto knowledge required.
 
-[![React Native](https://img.shields.io/badge/React%20Native-0.73-blue.svg)](https://reactnative.dev/)
-[![Expo](https://img.shields.io/badge/Expo-50-black.svg)](https://expo.dev/)
+<div align="center">
+
+![CryptoPay Logo](App/assets/cpay_logo.png)
+
+</div>
+
+[![React Native](https://img.shields.io/badge/React%20Native-0.81-blue.svg)](https://reactnative.dev/)
+[![Expo](https://img.shields.io/badge/Expo-54-black.svg)](https://expo.dev/)
+[![Solidity](https://img.shields.io/badge/Solidity-0.8.20-blue.svg)](https://soliditylang.org/)
 [![Polygon](https://img.shields.io/badge/Polygon-Amoy-purple.svg)](https://polygon.technology/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
-
-## 📥 Download APK
-
-**Latest Release: v1.0.0**
-
-[![Download APK](https://img.shields.io/badge/Download-APK-green.svg?style=for-the-badge&logo=android)](YOUR_APK_LINK_HERE)
-
-> 📱 Android 8.0+ required | 📦 Size: ~50MB | 🔒 Test version (Polygon Amoy)
-
-**To build the APK yourself**, see the [Build APK](#-build-apk) section below.
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ---
 
-## 🎯 Vision
+## 📋 Table of Contents
 
-Make blockchain payments **invisible**. Users shouldn't need to know about gas, wallets, or private keys. Just scan, authenticate with biometrics, and pay.
-
-**Like UPI, but on blockchain:**
-
-- ✅ 6-digit PIN instead of mnemonic phrases
-- ✅ QR code payments
-- ✅ Face ID / Fingerprint authentication
-- ✅ Instant settlement (~2 seconds)
-- ✅ No gas fee complexity for users
+- [Overview](#-overview)
+- [Download APK](#-download-apk)
+- [Vision](#-vision)
+- [Key Features](#-key-features)
+- [Architecture](#-architecture)
+- [Project Structure](#-project-structure)
+- [Quick Start](#-quick-start)
+- [Components](#-components)
+- [Tech Stack](#-tech-stack)
+- [How It Works](#-how-it-works)
+- [Cost Breakdown](#-cost-breakdown)
+- [Security](#-security)
+- [Roadmap](#-roadmap)
+- [Contributing](#-contributing)
 
 ---
 
-## 📱 App Features
+## 🎯 Overview
 
-### ✅ Completed (MVP v1.0)
+**CryptoPay** is a mobile-first blockchain payment application that makes crypto transactions as simple as UPI. Users don't need to understand wallets, gas fees, or private keys — just scan a QR code, authenticate with PIN or biometrics, and pay instantly.
 
-| Feature                 | Status | Description                                 |
-| ----------------------- | ------ | ------------------------------------------- |
-| **Phone Verification**  | ✅     | OTP-based authentication with rate limiting |
-| **Wallet Creation**     | ✅     | BIP-39/44 compliant HD wallet generation    |
-| **PIN Security**        | ✅     | 6-digit PIN with encrypted mnemonic storage |
-| **Biometric Auth**      | ✅     | Face ID / Fingerprint unlock                |
-| **QR Payments**         | ✅     | Scan & pay with merchant QR codes           |
-| **Transaction History** | ✅     | Real-time updates via Supabase              |
-| **Merchant Mode**       | ✅     | Generate payment QR codes                   |
-| **Balance Display**     | ✅     | PAY token + INR equivalent                  |
-| **Sign Out**            | ✅     | Session management without losing wallet    |
-| **Change PIN**          | ✅     | 3-step PIN update flow                      |
+---
 
-### 🔐 Security Features
+## 📱 Download APK
 
-- **Local Key Storage**: Private keys never leave device (SecureStore)
-- **Encrypted Mnemonic**: AES encryption with PIN-based decryption
-- **Biometric Protection**: Device credential fallback
-- **Session Management**: Sign out without deleting wallet
-- **Rate Limiting**: 3 OTP attempts per 24 hours
-- **Permission Handling**: Camera + Location with user consent
+**Ready to try CryptoPay?** Download the latest Android APK:
+
+🔗 **[Download CryptoPay APK](https://expo.dev/accounts/soumen0818/projects/cryptopay/builds/cd12dd8d-2765-4911-9d45-a7a6f5566d8d)**
+
+> **Note:** This is a testnet version running on Polygon Amoy. Use test tokens only.
+
+---
+
+### What Makes CryptoPay Different?
+
+| Traditional Crypto Wallets  | CryptoPay                             |
+| --------------------------- | ------------------------------------- |
+| 12-24 word seed phrases     | 6-digit PIN                           |
+| Manual gas fee management   | Invisible to users (optional gasless) |
+| Complex wallet addresses    | QR codes + phone numbers              |
+| Separate merchant solutions | Built-in merchant mode                |
+| Technical onboarding        | UPI-like simplicity                   |
+
+---
+
+## 💡 Vision
+
+**Make blockchain payments invisible.**
+
+Users shouldn't need to know they're using blockchain technology. Just like they don't think about HTTP when browsing the web, they shouldn't think about gas fees, nonces, or private keys when making payments.
+
+### The UPI Analogy
+
+Just as UPI revolutionized digital payments in India by abstracting banking complexity, CryptoPay abstracts blockchain complexity:
+
+- ✅ **6-digit PIN** instead of mnemonic phrases
+- ✅ **QR code payments** instead of copying addresses
+- ✅ **Face ID / Fingerprint** instead of signing transactions manually
+- ✅ **Instant settlement** (~2 seconds) instead of banking delays
+- ✅ **No gas fee complexity** for end users
+- ✅ **Merchant mode** built into the same app
+
+---
+
+## ✨ Key Features
+
+### User Features
+
+#### Authentication & Security
+
+- 📱 **Phone Verification** - OTP-based authentication with rate limiting (3 attempts/24h)
+- 🔐 **6-Digit PIN** - Simple, secure access (replaces complex mnemonics)
+- 👆 **Biometric Auth** - Face ID / Touch ID unlock
+- 🔑 **HD Wallet** - BIP-39/44 compliant wallet generation (invisible to user)
+- 🛡️ **Encrypted Storage** - Private keys never leave device (SecureStore)
+
+#### Payments
+
+- 📸 **QR Code Scanning** - Scan merchant QR to pay instantly
+- 💸 **Instant Transfers** - ~2 second settlement on Polygon
+- 📊 **Transaction History** - Complete payment log with real-time updates
+- 💰 **Balance Display** - PAY token balance with INR equivalent
+- 🎁 **Testnet Faucet** - Claim 100 PAY tokens for testing (24h cooldown)
+- 🔄 **Send Money** - Direct transfers to wallet addresses
+
+#### User Experience
+
+- 🎨 **Modern UI** - Clean, intuitive design with smooth animations
+- 🌙 **Profile Management** - Customizable name and profile photo
+- 🔄 **Change PIN** - Secure 3-step PIN update flow
+- 🚪 **Session Management** - Sign out without losing wallet
+- 🔓 **PIN Recovery** - Biometric + OTP verification flow
+- 📴 **Offline-First** - Works without constant connectivity
+
+### Merchant Features
+
+- 🏪 **Merchant Registration** - Business name, category, location
+- 📊 **Merchant Dashboard** - Sales analytics and payment insights
+- 📱 **Global QR Code** - Reusable QR code for your business
+- 💵 **Dynamic Pricing** - Generate QR codes with specific amounts
+- 📈 **Transaction Tracking** - Real-time payment monitoring
+- 🔔 **Payment Notifications** - Instant alerts for received payments
+- 📋 **Payment History** - Detailed merchant transaction log
+
+### Platform Features
+
+- 🚀 **Gasless Transactions** (Optional) - Meta-transactions via relayer service
+- ⚡ **Fast Settlement** - 2-second confirmation on Polygon Amoy
+- 🌐 **Real-time Sync** - Supabase for instant updates
+- 🔒 **Rate Limiting** - Anti-spam protection
+- 📧 **Email Alerts** - Low balance notifications for relayer
+- 🩺 **Health Monitoring** - Service uptime tracking
+
+---
+
+## 🏗️ Architecture
+
+### System Overview
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                         CRYPTOPAY ECOSYSTEM                          │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌────────────────┐         ┌────────────────┐         ┌───────────────┐
+│   Mobile App   │◄───────►│ Relayer Service│◄───────►│   Blockchain  │
+│  (React Native)│         │   (Node.js)    │         │   (Polygon)   │
+└────────┬───────┘         └────────────────┘         └───────┬───────┘
+         │                                                     │
+         │                                                     │
+         │                 ┌────────────────┐                 │
+         └────────────────►│    Supabase    │◄────────────────┘
+                           │   (Database)   │
+                           └────────────────┘
+```
+
+### Detailed Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                          CLIENT LAYER                                │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │              React Native Mobile App (Expo)                   │   │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │   │
+│  │  │   Screens    │  │  Components  │  │    Navigation    │   │   │
+│  │  │  (22 total)  │  │  (Reusable)  │  │   (Stack/Tab)    │   │   │
+│  │  └──────────────┘  └──────────────┘  └──────────────────┘   │   │
+│  │  ┌──────────────────────────────────────────────────────┐   │   │
+│  │  │              Services Layer                           │   │   │
+│  │  │  • Wallet Service (HD Wallet, PIN encryption)        │   │   │
+│  │  │  • Blockchain Service (ethers.js v6)                 │   │   │
+│  │  │  • Auth Service (OTP, rate limiting)                 │   │   │
+│  │  │  • Supabase Service (DB, real-time)                  │   │   │
+│  │  │  • Merchant Service (QR, analytics)                  │   │   │
+│  │  │  • Relayer Service (meta-txs, optional)              │   │   │
+│  │  └──────────────────────────────────────────────────────┘   │   │
+│  │  ┌──────────────────────────────────────────────────────┐   │   │
+│  │  │              Storage Layer                            │   │   │
+│  │  │  • SecureStore (encrypted mnemonic, PIN hash)        │   │   │
+│  │  │  • AsyncStorage (user prefs, cache)                  │   │   │
+│  │  └──────────────────────────────────────────────────────┘   │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+                    ┌───────────────┴───────────────┐
+                    │                               │
+┌───────────────────▼─────────┐   ┌────────────────▼──────────────┐
+│    BACKEND LAYER             │   │   BLOCKCHAIN LAYER            │
+│  ┌─────────────────────────┐ │   │  ┌──────────────────────────┐│
+│  │  Supabase (PostgreSQL)  │ │   │  │  Polygon Amoy Testnet    ││
+│  │  • Users table          │ │   │  │  Chain ID: 80002         ││
+│  │  • Transactions table   │ │   │  │  ┌─────────────────────┐ ││
+│  │  • Merchants table      │ │   │  │  │  PayToken (ERC-20)  │ ││
+│  │  • Real-time listeners  │ │   │  │  │  • transfer()       │ ││
+│  │  • Storage (photos)     │ │   │  │  │  • balanceOf()      │ ││
+│  └─────────────────────────┘ │   │  │  │  • faucet()         │ ││
+│                               │   │  │  │  • Meta-txs support │ ││
+│  ┌─────────────────────────┐ │   │  │  └─────────────────────┘ ││
+│  │  Relayer Service        │ │   │  └──────────────────────────┘│
+│  │  (Optional - Path B)    │ │   │                               │
+│  │  • Express.js API       │◄┼───┤  RPC: https://rpc-amoy...    │
+│  │  • Meta-tx execution    │ │   │  Explorer: amoy.polygonscan  │
+│  │  • Signature verify     │ │   │                               │
+│  │  • Gas subsidy          │ │   │                               │
+│  │  • Rate limiting        │ │   │                               │
+│  │  • Health checks        │ │   │                               │
+│  └─────────────────────────┘ │   │                               │
+└─────────────────────────────┘   └───────────────────────────────┘
+```
+
+### Data Flow Architecture
+
+#### 1. Wallet Creation Flow
+
+```
+User Opens App (First Time)
+        │
+        ▼
+Onboarding Screen (3 slides)
+        │
+        ▼
+Phone Verification
+  │
+  ├─► Send OTP (Supabase Auth)
+  ├─► Verify OTP (3 attempts/24h)
+  └─► Create user record
+        │
+        ▼
+Create 6-Digit PIN
+        │
+        ▼
+Confirm PIN (Re-enter)
+        │
+        ▼
+┌──────────────────────────────┐
+│   WALLET GENERATION          │
+│  ethers.Wallet.createRandom()│
+│          │                   │
+│          ▼                   │
+│  ┌───────────────────┐       │
+│  │ 12-word mnemonic  │       │
+│  │ (BIP-39)          │       │
+│  └────────┬──────────┘       │
+│           │                  │
+│           ▼                  │
+│  ┌───────────────────┐       │
+│  │ Derive HD Wallet  │       │
+│  │ (BIP-44 path)     │       │
+│  │ m/44'/60'/0'/0/0  │       │
+│  └────────┬──────────┘       │
+│           │                  │
+│           ├─► Private Key    │
+│           ├─► Public Key     │
+│           └─► Address (0x...)│
+└──────────────────────────────┘
+        │
+        ▼
+┌──────────────────────────────┐
+│   SECURE STORAGE             │
+│  • Mnemonic → AES encrypt    │
+│  •   with PIN as key         │
+│  •   → SecureStore           │
+│  • PIN → hash → SecureStore  │
+│  • Address → AsyncStorage    │
+└──────────────────────────────┘
+        │
+        ▼
+Biometric Setup (Optional)
+        │
+        ▼
+Profile Setup (Name, Photo)
+        │
+        ▼
+Home Screen (Ready!)
+```
+
+#### 2. Payment Flow (Standard - Path A)
+
+```
+User Scans Merchant QR
+        │
+        ▼
+QR Code Data:
+{
+  type: "payment",
+  merchant: "0xMerchantAddress",
+  amount: "10",
+  reference: "ORDER123",
+  merchantName: "Coffee Shop"
+}
+        │
+        ▼
+Payment Confirmation Screen
+  • Merchant name: Coffee Shop
+  • Amount: 10 PAY (₹100)
+  • Your balance: 50 PAY
+        │
+        ▼
+User Enters PIN (or Biometric)
+        │
+        ▼
+┌──────────────────────────────┐
+│   WALLET DECRYPTION          │
+│  • Get encrypted mnemonic    │
+│  • Decrypt with PIN          │
+│  • Derive wallet instance    │
+└──────────────────────────────┘
+        │
+        ▼
+┌──────────────────────────────┐
+│   BLOCKCHAIN TRANSACTION     │
+│  const contract = new        │
+│    ethers.Contract(...)      │
+│  const tx = await            │
+│    contract.transfer(        │
+│      merchantAddress,        │
+│      amount                  │
+│    )                         │
+│  await tx.wait()             │
+└──────────────────────────────┘
+        │
+        ▼
+Transaction Submitted
+  • Hash: 0xabc123...
+  • Status: Pending
+        │
+        ├─► Store in Supabase
+        │   (transactions table)
+        │
+        └─► Poll for confirmation
+                  │
+                  ▼
+            Confirmed! ✅
+                  │
+                  ├─► Update Supabase
+                  │   (status: confirmed)
+                  │
+                  └─► Real-time update
+                      to UI
+                      │
+                      ▼
+              Success Animation
+                "Payment Sent!"
+```
+
+#### 3. Payment Flow (Gasless - Path B)
+
+```
+User Scans Merchant QR
+        │
+        ▼
+Payment Confirmation Screen
+        │
+        ▼
+User Enters PIN (or Biometric)
+        │
+        ▼
+┌──────────────────────────────┐
+│   GET CURRENT NONCE          │
+│  GET /nonce/:userAddress     │
+│  ← { nonce: 5 }              │
+└──────────────────────────────┘
+        │
+        ▼
+┌──────────────────────────────┐
+│   SIGN META-TRANSACTION      │
+│  • Create EIP-712 message:   │
+│    {                         │
+│      from: userAddress,      │
+│      to: merchantAddress,    │
+│      amount: "10",           │
+│      nonce: 5                │
+│    }                         │
+│  • wallet.signTypedData()    │
+│  • Generate signature (0x...)│
+└──────────────────────────────┘
+        │
+        ▼
+┌──────────────────────────────┐
+│   SUBMIT TO RELAYER          │
+│  POST /relay                 │
+│  {                           │
+│    from, to, amount,         │
+│    nonce, signature          │
+│  }                           │
+└──────────────────────────────┘
+        │
+        ▼
+┌──────────────────────────────┐
+│   RELAYER PROCESSING         │
+│  1. Verify signature         │
+│  2. Recover signer address   │
+│  3. Check nonce matches      │
+│  4. Check user balance       │
+│  5. Submit to blockchain:    │
+│     contract.executeMetaTx(  │
+│       from, to, amount,      │
+│       nonce, signature       │
+│     ) {                      │
+│       from: RELAYER_ADDRESS  │
+│       // Relayer pays gas    │
+│     }                        │
+└──────────────────────────────┘
+        │
+        ▼
+Transaction Hash Returned
+  ← { txHash: "0xdef456..." }
+        │
+        ▼
+Store in Supabase
+  • User never paid gas
+  • Platform subsidized
+        │
+        ▼
+Poll for confirmation
+        │
+        ▼
+Success! ✅
+```
+
+### Database Schema (Supabase)
+
+```sql
+-- Users Table
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  phone_number TEXT UNIQUE NOT NULL,
+  wallet_address TEXT UNIQUE NOT NULL,
+  name TEXT,
+  profile_photo_url TEXT,
+  is_merchant BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Merchants Table
+CREATE TABLE merchants (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  business_name TEXT NOT NULL,
+  business_category TEXT,
+  location TEXT,
+  merchant_address TEXT UNIQUE NOT NULL,
+  total_sales NUMERIC DEFAULT 0,
+  transaction_count INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Transactions Table
+CREATE TABLE transactions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  from_address TEXT NOT NULL,
+  to_address TEXT NOT NULL,
+  amount NUMERIC NOT NULL,
+  tx_hash TEXT UNIQUE NOT NULL,
+  status TEXT NOT NULL, -- 'pending', 'confirmed', 'failed'
+  type TEXT NOT NULL, -- 'send', 'receive', 'merchant_payment'
+  block_number BIGINT,
+  gas_used TEXT,
+  merchant_name TEXT,
+  note TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  confirmed_at TIMESTAMP
+);
+
+-- OTP Rate Limiting Table
+CREATE TABLE otp_attempts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  phone_number TEXT NOT NULL,
+  attempt_count INTEGER DEFAULT 1,
+  first_attempt_at TIMESTAMP DEFAULT NOW(),
+  last_attempt_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes for performance
+CREATE INDEX idx_users_wallet ON users(wallet_address);
+CREATE INDEX idx_users_phone ON users(phone_number);
+CREATE INDEX idx_transactions_from ON transactions(from_address);
+CREATE INDEX idx_transactions_to ON transactions(to_address);
+CREATE INDEX idx_transactions_status ON transactions(status);
+CREATE INDEX idx_transactions_created ON transactions(created_at DESC);
+```
 
 ---
 
@@ -65,19 +490,40 @@ Make blockchain payments **invisible**. Users shouldn't need to know about gas, 
 
 ```
 CryptoPay/
-├── App/                      # React Native mobile app
+│
+├── App/                          # React Native Mobile Application
 │   ├── src/
-│   │   ├── screens/         # All app screens (17 screens)
-│   │   ├── services/        # Blockchain, wallet, auth services
-│   │   ├── components/      # Reusable UI components
-│   │   ├── navigation/      # Stack & tab navigation
-│   │   ├── constants/       # Theme, config, blockchain settings
-│   │   └── utils/           # Helpers, QR code, biometric
-│   ├── assets/              # Logo, icons
-│   └── app.json             # Expo configuration
-├── Blockchain/              # Smart contracts (Hardhat)
-├── docs/                    # Documentation
-└── README.md               # This file
+│   │   ├── screens/             # UI Screens (22 screens)
+│   │   ├── components/          # Reusable Components
+│   │   ├── services/            # Business Logic
+│   │   ├── utils/               # Helper Functions
+│   │   ├── types/               # TypeScript Definitions
+│   │   ├── constants/           # Configuration
+│   │   └── navigation/          # Navigation Setup
+│   ├── assets/                  # Static Assets
+│   ├── docs/                    # Documentation (15+ files)
+│   ├── Database-schema/         # SQL Migrations
+│   ├── App.tsx
+│   ├── package.json
+│   └── README.md                # App-specific documentation
+│
+├── Blockchain/                   # Smart Contracts
+│   ├── contracts/
+│   │   └── PayToken.sol         # ERC-20 Token + Meta-txs
+│   ├── scripts/
+│   │   └── deploy.js            # Deployment Script
+│   ├── test/
+│   │   └── PayToken.test.js     # Contract Tests
+│   ├── hardhat.config.js
+│   ├── package.json
+│   └── README.md                # Blockchain-specific documentation
+│
+├── relayer-service/              # Backend Service (Optional)
+│   ├── server.js                # Express API
+│   ├── package.json
+│   └── README.md                # Relayer-specific documentation
+│
+└── README.md                     # This File (Global Overview)
 ```
 
 ---
@@ -86,373 +532,467 @@ CryptoPay/
 
 ### Prerequisites
 
+- **Node.js** >= 18.0.0
+- **npm** >= 9.0.0
+- **Expo Go app** on your mobile device
+- **Supabase account** (free tier)
+- **MetaMask** or similar wallet (for deployment)
+
+### 1. Clone Repository
+
 ```bash
-node >= 18.0.0
-npm >= 9.0.0
-expo-cli
+git clone https://github.com/yourusername/CryptoPay.git
+cd CryptoPay
 ```
 
-### 1. Clone & Install
+### 2. Setup Mobile App
 
 ```bash
-cd CryptoPay/App
+cd App
 npm install
+
+# Create environment file
+cp .env.example .env
 ```
 
-### 2. Environment Setup
-
-Create `.env` file:
+Edit `App/.env`:
 
 ```env
-EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+EXPO_PUBLIC_TOKEN_ADDRESS=0xYourTokenAddress
 EXPO_PUBLIC_RPC_URL=https://rpc-amoy.polygon.technology
 EXPO_PUBLIC_CHAIN_ID=80002
-EXPO_PUBLIC_TOKEN_ADDRESS=your_deployed_token_address
-EXPO_PUBLIC_DEV_PHONE=+911234567890
-EXPO_PUBLIC_DEV_OTP=123456
 ```
 
-### 3. Run Development Build
+### 3. Deploy Smart Contract
 
 ```bash
-# Start Expo dev server
-npx expo start
+cd ../Blockchain
+npm install
 
-# Run on Android
-npx expo run:android
-
-# Run on iOS
-npx expo run:ios
+# Create environment file
+cp .env.example .env
 ```
 
-### 4. Test Authentication
+Edit `Blockchain/.env`:
 
-Use test credentials:
+```env
+PRIVATE_KEY=your_wallet_private_key
+AMOY_RPC_URL=https://rpc-amoy.polygon.technology
+RELAYER_ADDRESS=0xYourRelayerAddress
+```
 
-- **Phone**: `+911234567890`
-- **OTP**: `123456`
-- **PIN**: Any 6 digits
+Get test MATIC from [https://faucet.polygon.technology/](https://faucet.polygon.technology/), then deploy:
+
+```bash
+npx hardhat run scripts/deploy.js --network amoy
+```
+
+Copy the deployed token address to `App/.env`.
+
+### 4. (Optional) Setup Relayer Service
+
+```bash
+cd ../relayer-service
+npm install
+cp .env.example .env
+```
+
+Edit `relayer-service/.env` with your configuration, fund relayer wallet with MATIC, then:
+
+```bash
+npm start
+```
+
+Update `App/.env` with relayer URL.
+
+### 5. Run Mobile App
+
+```bash
+cd ../App
+npm start
+```
+
+Scan QR code with Expo Go app on your phone!
 
 ---
 
-## 🏗️ Architecture
+## 🧩 Components
 
-### Blockchain Layer
+### Mobile App (`App/`)
 
-```
-┌─────────────────────────────────────────┐
-│     Polygon Amoy Testnet (Chain 80002)  │
-│  ┌─────────────────────────────────┐    │
-│  │   PAY Token (ERC-20)            │    │
-│  │   - balanceOf()                 │    │
-│  │   - transfer()                  │    │
-│  │   - faucet() [testnet only]     │    │
-│  └─────────────────────────────────┘    │
-└─────────────────────────────────────────┘
-              ▲
-              │ RPC (ethers.js v6)
-              │
-┌─────────────┴───────────────────────────┐
-│          Mobile App (React Native)       │
-│  ┌─────────────────────────────────┐    │
-│  │  Wallet Service                 │    │
-│  │  - HD Wallet (BIP-39/44)        │    │
-│  │  - SecureStore encryption       │    │
-│  │  - PIN-based unlock             │    │
-│  └─────────────────────────────────┘    │
-└──────────────────────────────────────────┘
-              ▲
-              │ Real-time sync
-              │
-┌─────────────┴───────────────────────────┐
-│          Supabase (Backend)              │
-│  - User profiles                         │
-│  - Transaction history                   │
-│  - Merchant data                         │
-│  - Real-time subscriptions               │
-└──────────────────────────────────────────┘
-```
+**Purpose:** Cross-platform mobile application for iOS and Android
 
-### Wallet Generation Flow
+**Key Features:**
 
-```
-User Creates PIN (6 digits)
-        │
-        ▼
-ethers.Wallet.createRandom()
-        │
-        ├─► 12-word mnemonic (BIP-39)
-        ├─► Private key (BIP-44: m/44'/60'/0'/0/0)
-        └─► Wallet address (0x...)
-        │
-        ▼
-Mnemonic → Encrypt with PIN → SecureStore
-PIN → Hash → SecureStore
-```
+- User authentication (phone OTP, PIN, biometrics)
+- Wallet creation and management
+- QR code scanning and generation
+- Payment processing
+- Transaction history
+- Merchant mode
 
-### Payment Flow
+**Technologies:** React Native, Expo, TypeScript, Ethers.js v6
 
-```
-1. User scans merchant QR code
-2. QR contains: {merchant, amount, ref}
-3. App shows confirmation screen
-4. User enters PIN
-5. PIN decrypts mnemonic → derives wallet
-6. ethers.js signs transaction
-7. Sent to Polygon RPC
-8. Transaction hash returned
-9. Stored in Supabase
-10. Real-time update to UI
-```
+📖 **[Detailed App Documentation](App/README.md)**
 
 ---
 
-## 🛠️ Tech Stack
+### Smart Contracts (`Blockchain/`)
 
-### Frontend
+**Purpose:** On-chain logic for token transfers and meta-transactions
 
-| Technology                | Version | Purpose                |
-| ------------------------- | ------- | ---------------------- |
-| React Native              | 0.73    | Mobile framework       |
-| Expo                      | 50      | Build & deployment     |
-| TypeScript                | 5.3     | Type safety            |
-| ethers.js                 | 6.10    | Blockchain interaction |
-| expo-camera               | Latest  | QR code scanning       |
-| expo-local-authentication | Latest  | Biometrics             |
-| expo-secure-store         | Latest  | Encrypted storage      |
+**Key Contract:** PayToken (ERC-20 + EIP-2771)
+
+**Features:**
+
+- Standard ERC-20 functionality
+- Faucet (100 PAY / 24h for testing)
+- Meta-transaction support
+- Nonce management
+- Relayer authorization
+
+**Network:** Polygon Amoy Testnet (Chain ID: 80002)
+
+📖 **[Detailed Blockchain Documentation](Blockchain/README.md)**
+
+---
+
+### Relayer Service (`relayer-service/`)
+
+**Purpose:** Backend service for gasless transactions (Optional - Path B)
+
+**Key Features:**
+
+- Accept signed meta-transactions
+- Verify signatures (EIP-712)
+- Submit transactions to blockchain
+- Pay gas fees on behalf of users
+- Monitor service health
+
+**Technologies:** Node.js, Express, Ethers.js v6
+
+📖 **[Detailed Relayer Documentation](relayer-service/README.md)**
+
+---
+
+## 🛠 Tech Stack
+
+### Frontend (Mobile App)
+
+| Technology           | Version | Purpose                              |
+| -------------------- | ------- | ------------------------------------ |
+| **React Native**     | 0.81    | Cross-platform mobile framework      |
+| **Expo**             | ~54.0   | Build tooling and managed workflow   |
+| **TypeScript**       | ~5.9    | Type safety and developer experience |
+| **Ethers.js**        | v6.16   | Ethereum/Polygon interactions        |
+| **React Navigation** | v7      | Stack and tab navigation             |
+| **Supabase JS**      | v2.89   | Database client and real-time        |
+| **Expo SecureStore** | Latest  | Encrypted key storage                |
+| **Expo Local Auth**  | Latest  | Biometric authentication             |
+| **Expo Camera**      | Latest  | QR code scanning                     |
+| **React Native SVG** | Latest  | QR code generation                   |
 
 ### Backend
 
-| Service      | Purpose                                      |
-| ------------ | -------------------------------------------- |
-| Supabase     | PostgreSQL database, real-time subscriptions |
-| Polygon Amoy | Testnet blockchain (Chain ID: 80002)         |
+| Service               | Purpose                                                    | Cost                             |
+| --------------------- | ---------------------------------------------------------- | -------------------------------- |
+| **Supabase**          | PostgreSQL database, real-time subscriptions, file storage | Free tier ($0-$25/mo)            |
+| **Node.js + Express** | Relayer service API (optional)                             | Self-hosted or cloud ($0-$10/mo) |
 
-### Smart Contracts
+### Blockchain
 
-| Contract  | Standard | Features                            |
-| --------- | -------- | ----------------------------------- |
-| PAY Token | ERC-20   | Transfer, balance, faucet (testnet) |
+| Technology          | Purpose                                     |
+| ------------------- | ------------------------------------------- |
+| **Solidity 0.8.20** | Smart contract language                     |
+| **Hardhat**         | Development environment, testing framework  |
+| **OpenZeppelin**    | Secure contract libraries (ERC-20, Ownable) |
+| **Polygon Amoy**    | Layer 2 testnet (fast, cheap transactions)  |
+| **Ethers.js v6**    | Blockchain interaction library              |
+
+---
+
+## ⚙️ How It Works
+
+### User Journey: First-Time User
+
+```
+1. Download App
+   ↓
+2. Phone Verification (OTP)
+   ↓
+3. Create 6-Digit PIN
+   ↓
+4. [Automatic] Wallet Created (invisible to user)
+   ↓
+5. Enable Biometrics (optional)
+   ↓
+6. Setup Profile (name, photo)
+   ↓
+7. Claim Faucet (100 PAY tokens)
+   ↓
+8. Ready to Pay!
+```
+
+### User Journey: Making a Payment
+
+```
+1. Tap "Scan & Pay"
+   ↓
+2. Scan Merchant QR Code
+   ↓
+3. Review Payment Details
+   - Merchant: Coffee Shop
+   - Amount: 10 PAY (₹100)
+   ↓
+4. Enter PIN or Use Face ID
+   ↓
+5. [Background] Sign Transaction
+   ↓
+6. [Background] Submit to Blockchain
+   ↓
+7. Success! Payment Sent ✅
+   (Takes ~2 seconds)
+```
+
+### Merchant Journey
+
+```
+1. Enable Merchant Mode
+   ↓
+2. Register Business
+   - Name, Category, Location
+   ↓
+3. Generate Global QR Code
+   ↓
+4. Display QR at Store
+   ↓
+5. Customer Scans & Pays
+   ↓
+6. Instant Notification
+   ↓
+7. View in Dashboard
+```
 
 ---
 
 ## 💰 Cost Breakdown
 
-### MVP (Current): **$0.00/month**
+### MVP Development (Current)
 
-| Service          | Tier    | Cost   |
-| ---------------- | ------- | ------ |
-| Supabase         | Free    | $0     |
-| Polygon Amoy     | Testnet | $0     |
-| Expo Development | Free    | $0     |
-| GitHub           | Free    | $0     |
-| **Total**        |         | **$0** |
+| Component            | Cost         | Notes                             |
+| -------------------- | ------------ | --------------------------------- |
+| **Development**      | $0           | Self-developed                    |
+| **Supabase**         | $0           | Free tier (500MB DB, 1GB storage) |
+| **Polygon Amoy**     | $0           | Testnet (no real MATIC costs)     |
+| **Expo Development** | $0           | Free tier                         |
+| **GitHub**           | $0           | Public repository                 |
+| **Total**            | **$0/month** | ✅ Completely free!               |
 
-### Production (Future)
+### Production Deployment (Estimated)
 
-| Service             | Tier       | Cost              |
-| ------------------- | ---------- | ----------------- |
-| Supabase            | Pro        | $25/mo            |
-| Polygon Mainnet     | Gas fees   | Variable          |
-| Expo EAS            | Production | $29/mo            |
-| **Estimated Total** |            | **~$60/mo + gas** |
+| Component                       | Cost              | Notes                                 |
+| ------------------------------- | ----------------- | ------------------------------------- |
+| **Supabase Pro**                | $25/mo            | More storage, better performance      |
+| **Relayer Service**             | $5-10/mo          | Render/Railway free tier or cheap VPS |
+| **Domain**                      | $12/year          | Optional                              |
+| **Expo EAS**                    | $29/mo            | Production builds, updates            |
+| **SMS Gateway**                 | $0.01-0.05/SMS    | Twilio/AWS SNS for real OTP           |
+| **Gas Fees (if using relayer)** | Variable          | ~$0.01/tx on Polygon mainnet          |
+| **Polygon Mainnet RPC**         | $0-49/mo          | Alchemy/Infura (free tier available)  |
+| **Total**                       | **~$60-75/month** | + variable gas costs                  |
 
----
+### Cost Per Transaction
 
-## 📱 Build APK
-
-### Using EAS (Recommended)
-
-```bash
-# Install EAS CLI
-npm install -g eas-cli
-
-# Login to Expo
-eas login
-
-# Configure project
-eas build:configure
-
-# Build APK
-eas build -p android --profile preview
-```
-
-### Local Build
-
-```bash
-# Prebuild native code
-npx expo prebuild
-
-# Build APK
-cd android
-./gradlew assembleRelease
-```
-
-APK location: `android/app/build/outputs/apk/release/app-release.apk`
+| Scenario              | User Cost                  | Platform Cost          |
+| --------------------- | -------------------------- | ---------------------- |
+| **Standard (Path A)** | ~$0.001 MATIC (negligible) | $0                     |
+| **Gasless (Path B)**  | $0                         | ~$0.01 per transaction |
 
 ---
 
-## 🧪 Testing
+## 🔒 Security
 
-### Reset App (Test Full Flow)
+### Wallet Security
 
-To test complete onboarding from scratch:
+- **HD Wallet Generation:** BIP-39/44 compliant, industry standard
+- **Encrypted Storage:** Mnemonic encrypted with AES-256 before storing
+- **SecureStore:** OS-level encrypted storage (Keychain on iOS, Keystore on Android)
+- **PIN Protection:** 6-digit PIN required for all sensitive operations
+- **Biometric Lock:** Face ID / Touch ID as alternative to PIN
+- **No Exposure:** Private keys NEVER leave device or shown to user
 
-**Option 1: Clear storage**
+### Authentication Security
 
-```bash
-npx expo start --clear
-```
+- **Rate Limiting:** 3 OTP attempts per 24 hours per phone number
+- **Session Management:** Secure token-based sessions
+- **PIN Hashing:** One-way hash stored (cannot reverse-engineer PIN)
+- **Biometric Fallback:** Device credential required if biometrics unavailable
 
-**Option 2: Use utility function**
+### Network Security
 
-```typescript
-import { resetApp } from "./src/utils/resetApp";
-await resetApp(); // Clears all data
-// Restart app manually
-```
+- **HTTPS Only:** All API calls over HTTPS
+- **CORS Protection:** Relayer service restricts origins
+- **Rate Limiting:** API endpoints protected from abuse (100 req/min)
+- **Helmet.js:** Security headers (XSS, clickjacking protection)
+- **Input Validation:** All inputs sanitized and validated
 
-### Test Credentials
+### Smart Contract Security
 
-- Phone: `+911234567890`
-- OTP: `123456`
-- PIN: Any 6 digits (e.g., `111111`)
-
----
-
-## 📖 Documentation
-
-- [MVP Roadmap](MVP_ROADMAP.md) - 4-6 week implementation guide
-- [24HR Roadmap](MVP_ROADMAP_24HR_FREE.md) - Sprint version
-- [Production Roadmap](PRODUCTION_ROADMAP.md) - 12-month plan
-- [Tech Stack](TECH_STACK.md) - Technology decisions
-
----
-
-## 🔧 Configuration Files
-
-### app.json
-
-```json
-{
-  "expo": {
-    "name": "CryptoPay",
-    "slug": "cryptopay",
-    "version": "1.0.0",
-    "android": {
-      "package": "com.cryptopay.app",
-      "permissions": [
-        "CAMERA",
-        "ACCESS_FINE_LOCATION",
-        "USE_BIOMETRIC",
-        "INTERNET"
-      ]
-    }
-  }
-}
-```
-
-### Blockchain Config
-
-```typescript
-export const BLOCKCHAIN_CONFIG = {
-  RPC_URL: "https://rpc-amoy.polygon.technology",
-  CHAIN_ID: 80002,
-  CHAIN_NAME: "Polygon Amoy Testnet",
-  EXPLORER_URL: "https://amoy.polygonscan.com",
-};
-```
+- **OpenZeppelin:** Using audited, battle-tested contract libraries
+- **Access Control:** Owner-only functions for sensitive operations
+- **Nonce System:** Prevents replay attacks in meta-transactions
+- **Signature Verification:** Cryptographic proof of authorization
+- **Tested:** Comprehensive test suite (25+ tests)
 
 ---
 
-## 🚧 Known Limitations (Testnet MVP)
+## 🛣 Roadmap
 
-| Limitation         | Impact                 | Production Fix         |
-| ------------------ | ---------------------- | ---------------------- |
-| Test tokens only   | No real value          | Deploy on mainnet      |
-| Manual faucet      | User needs test MATIC  | Gas sponsorship (AA)   |
-| Testnet RPC        | Slower, less reliable  | Paid RPC provider      |
-| No social recovery | Lost PIN = lost wallet | Social recovery module |
-| Single chain       | Only Polygon           | Multi-chain support    |
+### ✅ Phase 1: MVP (Completed - January 2026)
 
----
+**Goal:** Functional testnet application with core features
 
-## 🛣️ Roadmap
-
-### Phase 1: MVP (Completed ✅)
-
-- [x] Wallet creation & management
-- [x] Phone + PIN authentication
+- [x] User authentication (phone OTP, PIN, biometrics)
+- [x] HD wallet creation and management
 - [x] QR code payments
 - [x] Transaction history
-- [x] Merchant mode
-- [x] Biometric authentication
+- [x] Merchant mode with dashboard
+- [x] Faucet integration
+- [x] Supabase backend integration
+- [x] Smart contract deployment
+- [x] Gasless transaction support (relayer service)
+- [x] Profile management
+- [x] PIN change flow
+- [x] APK build configuration
 
-### Phase 2: Production Ready (Next)
+**Status:** 🎉 **COMPLETE**
 
-- [ ] Deploy PAY token on Polygon mainnet
-- [ ] Implement gas sponsorship
-- [ ] Add social recovery
-- [ ] Real OTP service (Twilio/Firebase)
-- [ ] Push notifications
-- [ ] App store deployment
+---
 
-### Phase 3: Scale (Future)
+### 🚧 Phase 2: Production Ready (Q1 2026)
 
-- [ ] Multi-chain support
-- [ ] Fiat on/off ramp
-- [ ] Merchant dashboard
-- [ ] Analytics & reporting
-- [ ] White-label solution
+**Goal:** Mainnet deployment with production-grade features
+
+**Blockchain:**
+
+- [ ] Deploy PayToken on Polygon mainnet
+- [ ] Smart contract audit (CertiK/OpenZeppelin)
+- [ ] Upgrade to UUPS upgradeable pattern
+- [ ] Multi-token support (USDC, DAI)
+
+**Backend:**
+
+- [ ] Real OTP service (Twilio/AWS SNS)
+- [ ] Push notifications (Firebase Cloud Messaging)
+- [ ] Advanced rate limiting per user
+- [ ] Merchant API for third-party integrations
+- [ ] Admin dashboard for monitoring
+
+**Mobile App:**
+
+- [ ] App Store submission (iOS)
+- [ ] Google Play Store submission (Android)
+- [ ] Deep linking support
+- [ ] Share payment links
+- [ ] Payment requests
+- [ ] Recurring payments
+- [ ] Multi-language support (Hindi, English)
+
+**Security:**
+
+- [ ] Social recovery (3-of-5 guardians)
+- [ ] Transaction spending limits
+- [ ] Fraud detection
+- [ ] Bug bounty program
+
+---
+
+### 🔮 Phase 3: Scale & Enhance (Q2-Q3 2026)
+
+**Goal:** Advanced features and ecosystem growth
+
+- [ ] Fiat on/off ramp (Transak, Wyre)
+- [ ] Cross-chain payments (Polygon → Ethereum)
+- [ ] Payment splitting (split bill feature)
+- [ ] Scheduled payments
+- [ ] Invoice generation
+- [ ] Merchant analytics dashboard
+- [ ] Rewards/cashback system
+- [ ] Referral program
+- [ ] White-label solution for businesses
+- [ ] Web version (React)
 
 ---
 
 ## 🤝 Contributing
 
-This is an educational/MVP project. Contributions welcome!
+We welcome contributions! Whether you're fixing bugs, improving documentation, or adding new features, your help is appreciated.
+
+### How to Contribute
 
 1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing`)
-5. Open Pull Request
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Commit changes (`git commit -m 'Add amazing feature'`)
+5. Push to branch (`git push origin feature/amazing-feature`)
+6. Open Pull Request
+
+### Code Style
+
+- **TypeScript:** Use strict mode, define types
+- **React:** Functional components, hooks
+- **Solidity:** Follow OpenZeppelin standards
+- **Naming:** camelCase for variables, PascalCase for components
 
 ---
 
 ## 📄 License
 
-MIT License - Build whatever you want!
+MIT License - Feel free to use this project for learning, building, or commercial purposes!
 
 ---
 
 ## 🙏 Acknowledgments
 
-- **Polygon** for free testnet infrastructure
-- **Supabase** for generous free tier
-- **Expo** for amazing developer experience
-- **ethers.js** for robust web3 library
-- **OpenZeppelin** for secure contract standards
-
----
-
-## 📧 Contact & Support
-
-- **GitHub Issues**: Report bugs or request features
-- **Documentation**: Check `/docs` folder for detailed guides
+- **React Native & Expo** - Amazing mobile development experience
+- **Ethers.js** - Robust Web3 library
+- **OpenZeppelin** - Secure smart contract standards
+- **Supabase** - Generous free tier and great DX
+- **Polygon** - Fast, cheap testnet infrastructure
 
 ---
 
 <div align="center">
 
+## 🎯 Project Status
+
+| Component       | Status                | Version |
+| --------------- | --------------------- | ------- |
+| Mobile App      | ✅ Production Ready   | v1.0.0  |
+| Smart Contracts | ✅ Deployed (Testnet) | v1.0.0  |
+| Relayer Service | ✅ Optional (Working) | v1.0.0  |
+| Documentation   | ✅ Complete           | -       |
+
+### Quick Stats
+
+💰 **Budget:** $0  
+⏱️ **Timeline:** 6 weeks  
+📱 **Screens:** 22  
+🧪 **Tests:** 25+  
+⭐ **Features:** 30+
+
+---
+
+### **Status: READY FOR TESTNET USERS**
+
+_Last Updated: January 11, 2026_
+
+---
+
 **Built with constraints, shipped with confidence.**
 
-💰 Budget: **$0**  
-⏱️ Timeline: **6 weeks**  
-🎯 Goal: **Production-ready MVP**
-
-### 🚀 Status: READY FOR PRODUCTION
-
-_Last Updated: January 2026_
+Made with ❤️ for the Web3 community
 
 </div>
