@@ -225,7 +225,6 @@ export const BiometricSetupScreen: React.FC<BiometricSetupScreenProps> = ({
               )}
             </TouchableOpacity>
           )}
-  const biometricName = getBiometricName();
 
           <TouchableOpacity
             style={[styles.secondaryButton, !isAvailable && styles.primaryButton]}
