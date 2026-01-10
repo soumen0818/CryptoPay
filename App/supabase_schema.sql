@@ -60,6 +60,11 @@ CREATE TABLE IF NOT EXISTS merchants (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4 (),
     business_name TEXT NOT NULL,
     wallet_address TEXT UNIQUE NOT NULL,
+    owner_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    phone_number TEXT NOT NULL,
+    business_address TEXT NOT NULL,
+    business_registration_number TEXT,
     description TEXT,
     category TEXT, -- e.g., 'food', 'retail', 'services'
     logo_url TEXT,
