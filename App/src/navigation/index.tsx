@@ -21,6 +21,8 @@ import { TransactionHistoryScreen } from '../screens/TransactionHistoryScreen';
 import { MerchantRegistrationScreen } from '../screens/MerchantRegistrationScreen';
 import { MerchantDashboardScreen } from '../screens/MerchantDashboardScreen';
 import { MerchantQRGeneratorScreen } from '../screens/MerchantQRGeneratorScreen';
+import { MerchantGlobalQRScreen } from '../screens/MerchantGlobalQRScreen';
+import { MerchantTransactionsScreen } from '../screens/MerchantTransactionsScreen';
 import { SendMoneyScreen } from '../screens/SendMoneyScreen';
 import { ProfileSetupScreen } from '../screens/ProfileSetupScreen';
 import { PaymentQRData } from '../utils/qrCode';
@@ -46,6 +48,8 @@ type RootStackParamList = {
   MerchantRegistration: undefined;
   MerchantDashboard: undefined;
   MerchantQRGenerator: undefined;
+  MerchantGlobalQR: undefined;
+  MerchantTransactions: undefined;
 };
 
 type MainTabsParamList = {
@@ -199,6 +203,20 @@ export const Navigation = () => {
         <Stack.Screen 
           name="MerchantQRGenerator" 
           component={MerchantQRGeneratorScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="MerchantGlobalQR" 
+          component={MerchantGlobalQRScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="MerchantTransactions" 
+          component={MerchantTransactionsScreen}
           options={{
             headerShown: false,
           }}
