@@ -4,16 +4,20 @@
     "slug": "cryptopay",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "icon": "./assets/cpay_logo.png",
+    "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/cpay_logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#6366f1"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.cryptopay.app",
+      "buildNumber": "1",
       "infoPlist": {
         "NSCameraUsageDescription": "CryptoPay needs camera access to scan QR codes for payments",
         "NSLocationWhenInUseUsageDescription": "CryptoPay uses your location to secure transactions",
@@ -22,7 +26,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/cpay_logo.png",
         "backgroundColor": "#6366f1"
       },
       "package": "com.cryptopay.app",
@@ -34,12 +38,11 @@
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",
         "android.permission.INTERNET",
-        "android.permission.VIBRATE",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.VIBRATE"
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/cpay_logo.png"
     },
     "plugins": [
       "expo-secure-store",
@@ -60,12 +63,14 @@
         {
           "faceIDPermission": "Use Face ID to quickly and securely access your wallet"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "eas": {
         "projectId": "3c7a4ef7-ad99-42d0-8b88-0ee8e28542c9"
       }
-    }
+    },
+    "owner": "cryptopay"
   }
 }
