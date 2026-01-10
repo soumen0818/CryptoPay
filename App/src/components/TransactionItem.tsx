@@ -1,10 +1,16 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS } from '../constants/theme';
+import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS, TYPOGRAPHY } from '../constants/theme';
+import { formatDateShort } from '../utils/date';
+import { convertPAYtoINR } from '../utils/currency';
 
 interface Transaction {
-  id: string;
+  id?: string;
+  tx_hash?: string;
+  transaction_id?: string;
   merchant_name?: string;
+  sender_name?: string;
+  recipient_name?: string;
   to_address?: string;
   from_address?: string;
   amount: string;
@@ -13,7 +19,7 @@ interface Transaction {
   user_visible_status?: 'success' | 'failed';
   internal_status?: 'processing' | 'submitted' | 'confirmed' | 'failed';
   failure_reason?: string;
-  created_at: string;
+  created_at?: string;
 }
 
 interface TransactionItemProps {
@@ -84,21 +90,23 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
   const displayStatus = transaction.user_visible_status || transaction.status;
   const statusConfig = getStatusConfig(displayStatus, transaction.internal_status);
   
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const formatDate = (dateString: string) => formatDateShort(dateString);
+
+  // Get display name based on transaction direction
+  const getDisplayName = () => {
+    if (isReceived) {
+      // For received: show sender name
+      return transaction.sender_name || 
+        (transaction.from_address ? `${transaction.from_address.slice(0, 6)}...${transaction.from_address.slice(-4)}` : 'Unknown');
+    } else {
+      // For sent: show recipient name
+      return transaction.recipient_name || transaction.merchant_name || 
+        (transaction.to_address ? `${transaction.to_address.slice(0, 6)}...${transaction.to_address.slice(-4)}` : 'Unknown');
+    }
   };
 
-  const formatAddress = (address: string) => {
-    if (!address) return 'Unknown';
-    return address; // Show full address
-  };
+  const amount = parseFloat(transaction.amount);
+  const inrAmount = convertPAYtoINR(amount);
 
   return (
     <TouchableOpacity
@@ -106,47 +114,35 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
       onPress={onPress}
       activeOpacity={0.7}
     >
-      {/* Icon */}
-      <View style={[
-        styles.iconContainer,
-        { backgroundColor: isReceived ? COLORS.successBg : COLORS.infoBg }
-      ]}>
-        <Text style={styles.iconText}>
-          {isReceived ? '↓' : '↑'}
-        </Text>
-      </View>
-
-      {/* Details */}
-      <View style={styles.details}>
-        <View style={styles.row}>
-          <Text style={styles.title}>
-            {transaction.merchant_name || (isReceived ? 'Received from' : 'Sent to')}
+      <View style={styles.transactionHeader}>
+        <View style={styles.transactionInfo}>
+          <Text style={styles.transactionId}>
+            {transaction.transaction_id || 'TXN-...'}
           </Text>
-          <Text style={[
-            styles.amount,
-            { color: isReceived ? COLORS.success : COLORS.text }
-          ]}>
-            {isReceived ? '+' : '-'}{transaction.amount} PAY
+          <Text style={styles.transactionName} numberOfLines={1}>
+            {isReceived ? 'From: ' : 'To: '}{getDisplayName()}
+          </Text>
+          <Text style={styles.transactionDate}>
+            {formatDate(transaction.created_at || new Date().toISOString())}
           </Text>
         </View>
-        
-        <Text style={styles.address} numberOfLines={1} ellipsizeMode="middle">
-          {formatAddress(
-            isReceived ? transaction.from_address! : transaction.to_address!
-          )}
-        </Text>
-        
-        <Text style={styles.inrAmount}>
-          ≈ ₹{(parseFloat(transaction.amount) * 0.85).toFixed(2)} INR
-        </Text>
-        
-        <View style={styles.row}>
-          <Text style={styles.date}>{formatDate(transaction.created_at)}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
-            <Text style={[styles.statusText, { color: statusConfig.color }]}>
-              {statusConfig.icon} {statusConfig.label}
-            </Text>
-          </View>
+        <View style={styles.transactionAmountContainer}>
+          <Text style={[
+            styles.transactionAmount,
+            { color: isReceived ? '#10b981' : COLORS.text }
+          ]}>
+            {isReceived ? '+' : '-'}{amount.toFixed(2)} PAY
+          </Text>
+          <Text style={styles.transactionAmountINR}>
+            ≈ ₹{inrAmount.toFixed(2)}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.transactionFooter}>
+        <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
+          <Text style={[styles.statusText, { color: statusConfig.color }]}>
+            {statusConfig.icon} {statusConfig.label}
+          </Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -155,64 +151,57 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.surface,
-    padding: SPACING.lg,
-    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    padding: SPACING.md,
     marginBottom: SPACING.sm,
-    ...SHADOWS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: BORDER_RADIUS.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-  iconText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  details: {
-    flex: 1,
-  },
-  row: {
+  transactionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: SPACING.xs,
+    alignItems: 'flex-start',
+    marginBottom: SPACING.sm,
   },
-  title: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.text,
+  transactionInfo: {
     flex: 1,
   },
-  address: {
+  transactionId: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '700',
+    color: COLORS.primary,
+    marginBottom: 2,
+  },
+  transactionName: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text,
+    marginBottom: 2,
+  },
+  transactionDate: {
     fontSize: FONT_SIZES.xs,
     color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
-  inrAmount: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginTop: 2,
+  transactionAmountContainer: {
+    alignItems: 'flex-end',
   },
-  amount: {
+  transactionAmount: {
     fontSize: FONT_SIZES.md,
     fontWeight: '700',
-    marginLeft: SPACING.sm,
   },
-  date: {
+  transactionAmountINR: {
     fontSize: FONT_SIZES.xs,
     color: COLORS.textSecondary,
+  },
+  transactionFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
   },
   statusBadge: {
     paddingHorizontal: SPACING.sm,
-    paddingVertical: 2,
-    borderRadius: BORDER_RADIUS.sm,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   statusText: {
     fontSize: FONT_SIZES.xs,
