@@ -16,7 +16,6 @@ import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import QRCode from 'react-native-qrcode-svg';
-import { clearWallet } from '../services/wallet';
 import { isMerchant, getMerchantProfile } from '../services/merchant';
 import { supabase } from '../services/supabase';
 import { isBiometricAvailable, getBiometricType } from '../utils/biometric';
@@ -273,7 +272,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 
   const handleCopyAddress = async () => {
     await Clipboard.setStringAsync(walletAddress);
-    Alert.alert('Copied!', 'Wallet address copied to clipboard');
+    // Silent copy - no alert
   };
 
   const handleShareAddress = async () => {
@@ -350,67 +349,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     await AsyncStorage.setItem('notifications_enabled', value.toString());
   };
 
-  const handleResetWallet = () => {
-    Alert.alert(
-      '⚠️ DANGER: Reset Wallet',
-      'This will DELETE your wallet permanently! Only use this for testing. Your wallet will be completely erased and you will need to create a new one.\n\nThis action CANNOT be undone!',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'I Understand, Delete Everything',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert(
-              '🚨 Final Warning',
-              'Are you ABSOLUTELY SURE? This will delete:\n\n• Your wallet\n• Your PIN\n• All local data\n• You CANNOT recover this!',
-              [
-                { text: 'No, Go Back', style: 'cancel' },
-                {
-                  text: 'Yes, DELETE',
-                  style: 'destructive',
-                  onPress: async () => {
-                    try {
-                      await clearWallet();
-                      
-                      await AsyncStorage.multiRemove([
-                        'wallet_address',
-                        'user_pin',
-                        'biometric_enabled',
-                        'auth_token',
-                        'phone_verified',
-                        'phone_number',
-                        'is_merchant',
-                        'merchant_id',
-                        'transactions',
-                        'notifications_enabled',
-                        'profile_photo',
-                      ]);
-                      
-                      Alert.alert(
-                        '✅ Wallet Reset Complete',
-                        'All data has been erased. The app will now restart.',
-                        [
-                          {
-                            text: 'OK',
-                            onPress: () => navigation.replace('Splash'),
-                          },
-                        ],
-                        { cancelable: false }
-                      );
-                    } catch (error) {
-                      Alert.alert('Error', 'Failed to reset wallet. Please try again.');
-                      console.error('Reset wallet error:', error);
-                    }
-                  },
-                },
-              ]
-            );
-          },
-        },
-      ]
-    );
-  };
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Profile Header */}
@@ -466,7 +404,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
             <View style={styles.qrCodeContent}>
               <View style={styles.qrCodeWrapper}>
                 <QRCode
-                  value={walletAddress}
+                  value={JSON.stringify({
+                    type: 'cryptopay',
+                    merchant: walletAddress,
+                    amount: '0',
+                    name: displayName || 'CryptoPay User',
+                    note: '',
+                  })}
                   size={200}
                   backgroundColor="white"
                   color={COLORS.primary}
@@ -641,18 +585,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         </TouchableOpacity>
         <Text style={styles.signOutHint}>
           Your wallet will be safe. Sign back in anytime.
-        </Text>
-      </View>
-
-      {/* Developer Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>⚠️ Developer Tools</Text>
-        <TouchableOpacity style={styles.dangerButton} onPress={handleResetWallet}>
-          <Text style={styles.dangerButtonIcon}>🗑️</Text>
-          <Text style={styles.dangerButtonText}>Reset Wallet (Testing Only)</Text>
-        </TouchableOpacity>
-        <Text style={styles.dangerHint}>
-          WARNING: This will permanently delete your wallet!
         </Text>
       </View>
 
@@ -931,32 +863,6 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
     fontStyle: 'italic',
-  },
-  dangerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.errorBg,
-    borderWidth: 2,
-    borderColor: COLORS.error,
-    padding: SPACING.md,
-    borderRadius: BORDER_RADIUS.md,
-    marginBottom: SPACING.sm,
-  },
-  dangerButtonIcon: {
-    fontSize: 20,
-    marginRight: SPACING.sm,
-  },
-  dangerButtonText: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.error,
-  },
-  dangerHint: {
-    fontSize: FONT_SIZES.sm,
-    color: '#DC2626',
-    textAlign: 'center',
-    fontWeight: '500',
   },
   footer: {
     alignItems: 'center',

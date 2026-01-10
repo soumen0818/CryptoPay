@@ -52,20 +52,22 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation, route }) => 
     setLoading(true);
 
     try {
-      // Check if it's a simple wallet address (from Profile QR code)
+      // Check if it's a simple wallet address (legacy format - just wallet address)
       if (data.startsWith('0x') && data.length === 42) {
-        // Simple wallet address
+        // Simple wallet address - no name available
         setLoading(false);
         
-        // Replace current screen to avoid back button going to scan
         navigation.replace('SendMoney', { 
           recipientAddress: data,
+          recipientName: undefined,
+          isMerchantPayment: false,
+          isFromQR: true,
           hideBalance: route?.params?.returnTo !== 'SendMoney'
         });
         return;
       }
 
-      // Try to parse as payment QR code (old format with amount/merchant details)
+      // Try to parse as payment QR code (JSON format with name/amount/merchant details)
       const paymentData = parsePaymentQR(data);
 
       if (!paymentData) {
@@ -94,6 +96,9 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation, route }) => 
         amount: paymentData.amount && paymentData.amount !== '0' ? paymentData.amount : undefined,
         recipientName: paymentData.name,
         note: paymentData.note,
+        merchantId: paymentData.merchantId, // Pass merchant ID for merchant payments
+        isMerchantPayment: !!paymentData.merchantId, // Flag to indicate merchant payment
+        isFromQR: true, // Flag to indicate data came from QR scan
         hideBalance: route?.params?.returnTo !== 'SendMoney'
       });
     } catch (error) {

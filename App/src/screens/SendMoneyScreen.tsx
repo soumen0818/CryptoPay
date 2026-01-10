@@ -15,7 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ethers } from 'ethers';
 import { getWallet } from '../services/wallet';
 import { getProvider, getTokenContract, transferTokens } from '../services/blockchain';
-import { saveTransaction } from '../services/storage';
+import { saveTransaction, getUserDisplayName } from '../services/storage';
 import { authenticateWithBiometric, authenticateWithPIN } from '../utils/biometric';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS } from '../constants/theme';
 import { Button, LoadingSpinner } from '../components';
@@ -34,6 +34,12 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
   const [loading, setLoading] = useState(false);
   const [balance, setBalance] = useState<string>('0');
   const [hideBalance, setHideBalance] = useState<boolean>(false);
+  const [merchantId, setMerchantId] = useState<string | null>(null);
+  const [isMerchantPayment, setIsMerchantPayment] = useState<boolean>(false);
+  const [isFromQR, setIsFromQR] = useState<boolean>(false);
+  const [hasPresetAmount, setHasPresetAmount] = useState<boolean>(false);
+  const [fetchingRecipient, setFetchingRecipient] = useState<boolean>(false);
+  const [recipientFetched, setRecipientFetched] = useState<boolean>(false);
   const paymentInProgress = useRef<boolean>(false);
   const networkTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -53,17 +59,29 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
     if (route?.params?.recipientName) {
       setRecipientName(route.params.recipientName);
     }
-    if (route?.params?.amount) {
+    if (route?.params?.amount && parseFloat(route.params.amount) > 0) {
       // Convert PAY amount from QR to INR for display
       const payAmount = parseFloat(route.params.amount);
       const inrAmount = (payAmount * INR_TO_PAY_RATE).toFixed(2);
       setAmountINR(inrAmount);
+      setHasPresetAmount(true);
     }
     if (route?.params?.note) {
       setNote(route.params.note);
     }
     if (route?.params?.hideBalance === true) {
       setHideBalance(true);
+    }
+    // Check if this is a merchant payment
+    if (route?.params?.merchantId) {
+      setMerchantId(route.params.merchantId);
+    }
+    // Check payment type flags
+    if (route?.params?.isMerchantPayment) {
+      setIsMerchantPayment(true);
+    }
+    if (route?.params?.isFromQR) {
+      setIsFromQR(true);
     }
   }, [route?.params]);
 
@@ -111,6 +129,56 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
     } catch (error) {
       console.error('Error loading balance:', error);
       setBalance('0.00');
+    }
+  };
+
+  // Fetch recipient name when address is entered
+  const fetchRecipientName = async (address: string) => {
+    if (!address || !ethers.isAddress(address)) {
+      setRecipientName('');
+      setRecipientFetched(false);
+      return;
+    }
+
+    // Don't fetch if same as user's wallet
+    if (address.toLowerCase() === walletAddress.toLowerCase()) {
+      setRecipientName('');
+      setRecipientFetched(false);
+      return;
+    }
+
+    setFetchingRecipient(true);
+    try {
+      const name = await getUserDisplayName(address);
+      if (name) {
+        setRecipientName(name);
+        setRecipientFetched(true);
+      } else {
+        setRecipientName('');
+        setRecipientFetched(false);
+      }
+    } catch (error) {
+      console.log('Error fetching recipient name:', error);
+      setRecipientName('');
+      setRecipientFetched(false);
+    } finally {
+      setFetchingRecipient(false);
+    }
+  };
+
+  // Handle address input change - auto-fetch when valid address is entered
+  const handleAddressChange = (address: string) => {
+    setRecipientAddress(address);
+    
+    // Clear previous recipient info when address changes
+    if (!isFromQR) {
+      setRecipientName('');
+      setRecipientFetched(false);
+    }
+    
+    // Auto-fetch when a complete valid Ethereum address is entered (42 chars: 0x + 40 hex)
+    if (!isFromQR && address.length === 42 && ethers.isAddress(address)) {
+      fetchRecipientName(address);
     }
   };
 
@@ -221,14 +289,24 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
               paymentInProgress.current = false;
 
               // Save transaction locally and sync to Supabase
+              // Get sender's name from AsyncStorage
+              const senderName = await AsyncStorage.getItem('user_name');
+              
               const transactionData = {
                 tx_hash: txHash,
                 to_address: recipientAddress.trim(),
                 from_address: walletAddress,
                 amount: amountPAY,
                 status: 'pending' as const,
-                merchant_name: note || undefined,
+                // For merchant payments: merchant_name is business name, recipient_name is same
+                // For personal payments: recipient_name is the person's name (if available)
+                merchant_name: merchantId ? recipientName : undefined,
+                recipient_name: recipientName || undefined,
+                sender_name: senderName || undefined,
+                note: note || undefined, // Separate note field
                 created_at: new Date().toISOString(),
+                transaction_type: merchantId ? 'merchant' as const : 'personal' as const,
+                merchant_id: merchantId || undefined,
               };
               
               saveTransaction(transactionData)
@@ -269,7 +347,10 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
       const { default: Clipboard } = await import('expo-clipboard');
       const text = await Clipboard.getStringAsync();
       if (text && ethers.isAddress(text.trim())) {
-        setRecipientAddress(text.trim());
+        const address = text.trim();
+        setRecipientAddress(address);
+        // Automatically fetch recipient name after pasting
+        fetchRecipientName(address);
       } else {
         Alert.alert('Invalid Address', 'Clipboard does not contain a valid address');
       }
@@ -328,33 +409,61 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
           </View>
         )}
 
-        {/* Recipient Address Input */}
-        <View style={styles.inputSection}>
-          <Text style={styles.inputLabel}>
-            {recipientName ? `Send to ${recipientName}` : 'Recipient Wallet Address'}
-          </Text>
-          {recipientName && (
-            <View style={styles.recipientNameBadge}>
-              <Text style={styles.recipientNameIcon}>✓</Text>
-              <Text style={styles.recipientNameText}>{recipientName}</Text>
+        {/* Recipient Info Card - Show when from QR scan OR when name is fetched */}
+        {((isFromQR && recipientName) || recipientFetched) && (
+          <View style={styles.recipientCard}>
+            <View style={styles.recipientCardHeader}>
+              <Text style={styles.recipientCardIcon}>{isMerchantPayment ? '🏪' : '👤'}</Text>
+              <Text style={styles.recipientCardTitle}>
+                {isMerchantPayment ? 'Paying Merchant' : 'Sending To'}
+              </Text>
             </View>
-          )}
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              placeholder="0x..."
-              placeholderTextColor={COLORS.textTertiary}
-              value={recipientAddress}
-              onChangeText={setRecipientAddress}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!recipientAddress || !route?.params?.recipientAddress}
-            />
-            <TouchableOpacity style={styles.inputButton} onPress={handlePasteAddress}>
-              <Text style={styles.inputButtonText}>📋</Text>
-            </TouchableOpacity>
+            <View style={styles.recipientCardContent}>
+              <Text style={styles.recipientCardName}>{recipientName}</Text>
+              <Text style={styles.recipientCardAddress} numberOfLines={1}>
+                {recipientAddress.slice(0, 10)}...{recipientAddress.slice(-8)}
+              </Text>
+            </View>
           </View>
-        </View>
+        )}
+
+        {/* Recipient Address Input - Hide when recipient is fetched or from QR */}
+        {!isFromQR && !recipientFetched && (
+          <View style={styles.inputSection}>
+            <Text style={styles.inputLabel}>Recipient Wallet Address</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="0x..."
+                placeholderTextColor={COLORS.textTertiary}
+                value={recipientAddress}
+                onChangeText={handleAddressChange}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity style={styles.inputButton} onPress={handlePasteAddress}>
+                <Text style={styles.inputButtonText}>📋</Text>
+              </TouchableOpacity>
+            </View>
+            {fetchingRecipient && (
+              <Text style={styles.fetchingText}>Looking up recipient...</Text>
+            )}
+          </View>
+        )}
+
+        {/* Change Recipient Button - Show when recipient is fetched (not from QR) */}
+        {!isFromQR && recipientFetched && (
+          <TouchableOpacity 
+            style={styles.changeRecipientButton}
+            onPress={() => {
+              setRecipientAddress('');
+              setRecipientName('');
+              setRecipientFetched(false);
+            }}
+          >
+            <Text style={styles.changeRecipientText}>Change Recipient</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Amount Input */}
         <View style={styles.inputSection}>
@@ -362,12 +471,13 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
           <View style={styles.amountInputContainer}>
             <Text style={styles.currencySymbol}>₹</Text>
             <TextInput
-              style={styles.amountInput}
+              style={[styles.amountInput, hasPresetAmount && styles.inputDisabled]}
               placeholder="0.00"
               placeholderTextColor={COLORS.textTertiary}
               value={amountINR}
               onChangeText={setAmountINR}
               keyboardType="decimal-pad"
+              editable={!hasPresetAmount}
             />
             <Text style={styles.currencyLabel}>INR</Text>
           </View>
@@ -376,18 +486,20 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
               <Text style={styles.conversionText}>≈ {amountPAY} PAY</Text>
             </View>
           )}
-          {/* Quick Amount Buttons */}
-          <View style={styles.quickAmountContainer}>
-            {['10', '50', '100', '500'].map((quickAmount) => (
-              <TouchableOpacity
-                key={quickAmount}
-                style={styles.quickAmountButton}
-                onPress={() => setAmountINR(quickAmount)}
-              >
-                <Text style={styles.quickAmountText}>₹{quickAmount}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {/* Quick Amount Buttons - Hide when amount is preset from QR */}
+          {!hasPresetAmount && (
+            <View style={styles.quickAmountContainer}>
+              {['10', '50', '100', '500'].map((quickAmount) => (
+                <TouchableOpacity
+                  key={quickAmount}
+                  style={styles.quickAmountButton}
+                  onPress={() => setAmountINR(quickAmount)}
+                >
+                  <Text style={styles.quickAmountText}>₹{quickAmount}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Note Input (Optional) */}
@@ -509,6 +621,61 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     marginTop: SPACING.xs,
   },
+  recipientCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.xl,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    ...SHADOWS.md,
+  },
+  recipientCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  recipientCardIcon: {
+    fontSize: 24,
+    marginRight: SPACING.sm,
+  },
+  recipientCardTitle: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  recipientCardContent: {
+    marginLeft: 36,
+  },
+  recipientCardName: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: SPACING.xs,
+  },
+  recipientCardAddress: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  fetchingText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.primary,
+    marginTop: SPACING.xs,
+    fontStyle: 'italic',
+  },
+  changeRecipientButton: {
+    alignSelf: 'flex-start',
+    marginBottom: SPACING.lg,
+  },
+  changeRecipientText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.primary,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
   inputSection: {
     marginBottom: SPACING.xl,
   },
@@ -517,7 +684,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.text,
     marginBottom: SPACING.sm,
-  },  recipientNameBadge: {
+  },
+  inputDisabled: {
+    backgroundColor: COLORS.background,
+    color: COLORS.textSecondary,
+  },
+  recipientNameBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.successBg,

@@ -14,7 +14,7 @@ import { getTransactions, Transaction } from '../services/storage';
 import { pollPendingTransactions } from '../services/transactionMonitor';
 import { supabase } from '../services/supabase';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS } from '../constants/theme';
-import { TransactionItem, LoadingSpinner, EmptyState } from '../components';
+import { TransactionItem, LoadingSpinner, EmptyState, TransactionDetailModal } from '../components';
 
 interface TransactionHistoryScreenProps {
   navigation: any;
@@ -28,7 +28,8 @@ export const TransactionHistoryScreen: React.FC<TransactionHistoryScreenProps> =
   const [refreshing, setRefreshing] = useState(false);
   const [realtimeConnected, setRealtimeConnected] = useState(false);
   const [currentWallet, setCurrentWallet] = useState<string>('');
-
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
   useEffect(() => {
     loadWalletAddress();
     loadTransactions();
@@ -167,6 +168,10 @@ export const TransactionHistoryScreen: React.FC<TransactionHistoryScreenProps> =
             <TransactionItem
               transaction={item}
               currentWallet={currentWallet}
+              onPress={() => {
+                setSelectedTransaction(item);
+                setShowTransactionModal(true);
+              }}
             />
           )}
           keyExtractor={(item) => item.tx_hash}
@@ -182,6 +187,17 @@ export const TransactionHistoryScreen: React.FC<TransactionHistoryScreenProps> =
           showsVerticalScrollIndicator={false}
         />
       )}
+
+      {/* Transaction Detail Modal */}
+      <TransactionDetailModal
+        visible={showTransactionModal}
+        transaction={selectedTransaction}
+        onClose={() => {
+          setShowTransactionModal(false);
+          setSelectedTransaction(null);
+        }}
+        currentWallet={currentWallet}
+      />
     </View>
   );
 };

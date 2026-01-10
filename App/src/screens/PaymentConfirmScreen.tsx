@@ -40,7 +40,12 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
   const { paymentData, merchantDetails } = route.params;
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [merchantInfo, setMerchantInfo] = useState(merchantDetails || null);
+  const [merchantInfo, setMerchantInfo] = useState<{
+    id?: string;
+    business_name: string;
+    category?: string;
+    description?: string;
+  } | null>(merchantDetails || null);
 
   // Fetch merchant details if not provided
   useEffect(() => {
@@ -63,6 +68,7 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
 
         if (merchant) {
           setMerchantInfo({
+            id: merchant.id,
             business_name: merchant.business_name,
             category: merchant.category,
             description: merchant.description,
@@ -116,13 +122,12 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
       await recordAction('payment');
 
       // Phase 4: Check transaction limits
-      const amount = parseFloat(paymentData.amount);
-      const limitCheck = await checkTransactionLimit(amount);
+      const limitCheck = await checkTransactionLimit(paymentData.amount);
       
       if (!limitCheck.allowed) {
         Alert.alert(
           'Transaction Limit Exceeded',
-          limitCheck.message || 'This transaction exceeds your daily limits.'
+          limitCheck.reason || 'This transaction exceeds your daily limits.'
         );
         setLoading(false);
         return;
@@ -142,6 +147,14 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
       const submittedAt = new Date().toISOString();
 
       // Save transaction as "processing" (internal) but "success" (user-visible)
+      // Determine if this is a merchant payment based on QR data
+      const isMerchantPayment = !!(paymentData.merchantId || merchantInfo?.id);
+      const merchantId = paymentData.merchantId || merchantInfo?.id || null;
+      
+      // Get sender's name from AsyncStorage
+      const senderName = await AsyncStorage.getItem('user_name');
+      const merchantOrRecipientName = merchantInfo?.business_name || paymentData.name;
+
       await saveTransaction({
         tx_hash: tempTxId,
         to_address: paymentData.merchant,
@@ -149,7 +162,12 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
         status: 'pending',
         internal_status: 'processing',
         user_visible_status: 'success', // Show success to user immediately!
-        merchant_name: merchantInfo?.business_name || paymentData.name,
+        merchant_name: isMerchantPayment ? merchantOrRecipientName : undefined,
+        recipient_name: merchantOrRecipientName,
+        sender_name: senderName || undefined,
+        note: paymentData.note || undefined,
+        transaction_type: isMerchantPayment ? 'merchant' : 'personal',
+        merchant_id: merchantId || undefined,
         submitted_at: submittedAt,
       });
 
@@ -181,7 +199,7 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
           console.log('✅ Transaction submitted to blockchain:', txHash);
 
           // Phase 4: Record successful transaction for limit tracking
-          await recordTransaction(parseFloat(paymentData.amount));
+          await recordTransaction(paymentData.amount);
 
           // Update transaction with real hash and status
           await saveTransaction({
@@ -191,7 +209,12 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
             status: 'pending',
             internal_status: 'submitted',
             user_visible_status: 'success',
-            merchant_name: merchantInfo?.business_name || paymentData.name,
+            merchant_name: isMerchantPayment ? merchantOrRecipientName : undefined,
+            recipient_name: merchantOrRecipientName,
+            sender_name: senderName || undefined,
+            note: paymentData.note || undefined,
+            transaction_type: isMerchantPayment ? 'merchant' : 'personal',
+            merchant_id: merchantId || undefined,
             submitted_at: submittedAt,
           });
 
@@ -219,7 +242,12 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
             status: 'failed',
             internal_status: 'failed',
             user_visible_status: 'failed',
-            merchant_name: merchantInfo?.business_name || paymentData.name,
+            merchant_name: isMerchantPayment ? merchantOrRecipientName : undefined,
+            recipient_name: merchantOrRecipientName,
+            sender_name: senderName || undefined,
+            note: paymentData.note || undefined,
+            transaction_type: isMerchantPayment ? 'merchant' : 'personal',
+            merchant_id: merchantId || undefined,
             submitted_at: submittedAt,
             failure_reason: failureReason,
           });
