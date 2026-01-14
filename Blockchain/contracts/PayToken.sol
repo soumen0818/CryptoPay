@@ -8,13 +8,15 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 /**
  * @title PayToken
  * @dev ERC-20 token for CryptoPay with:
+ *      - Used as a stablecoin (1 token = ₹1 INR)
+ *      - Users only see INR amounts, tokens work behind the scenes
  *      - Faucet functionality for testing
- *      - EIP-2771 meta-transactions for gasless payments (Path B - Advanced)
+ *      - EIP-2771 meta-transactions for gasless payments
  */
 contract PayToken is ERC20, Ownable {
     using ECDSA for bytes32;
     
-    // Faucet amount: 100 PAY tokens
+    // Faucet amount: 100 tokens (₹100 INR for users)
     uint256 public constant FAUCET_AMOUNT = 100 * 10**18;
     
     // Cooldown period: 24 hours
