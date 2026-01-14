@@ -25,6 +25,9 @@ import { MerchantGlobalQRScreen } from '../screens/MerchantGlobalQRScreen';
 import { MerchantTransactionsScreen } from '../screens/MerchantTransactionsScreen';
 import { SendMoneyScreen } from '../screens/SendMoneyScreen';
 import { ProfileSetupScreen } from '../screens/ProfileSetupScreen';
+import { PaymentProcessingScreen } from '../screens/PaymentProcessingScreen';
+import { PaymentSuccessScreen } from '../screens/PaymentSuccessScreen';
+import { PaymentFailureScreen } from '../screens/PaymentFailureScreen';
 import { PaymentQRData } from '../utils/qrCode';
 import { COLORS } from '../constants/theme';
 
@@ -43,8 +46,11 @@ type RootStackParamList = {
   Scan: { returnTo?: string };
   SendMoney: { recipientAddress?: string; amount?: string; recipientName?: string; note?: string; hideBalance?: boolean };
   PaymentConfirm: { paymentData: PaymentQRData };
+  PaymentProcessing: { amount: string; recipientName: string; recipientAddress: string };
+  PaymentSuccess: { transactionHash: string; amount: string; recipientName: string; recipientAddress: string; processingTime?: number; timestamp?: string; note?: string; isMerchantPayment?: boolean };
+  PaymentFailure: { amount: string; recipientName: string; recipientAddress: string; errorMessage?: string; errorReason?: string; timestamp?: string };
   QRGenerator: undefined;
-  TransactionHistory: undefined;
+  TransactionHistory: { highlightTransaction?: string };
   MerchantRegistration: undefined;
   MerchantDashboard: undefined;
   MerchantQRGenerator: undefined;
@@ -167,6 +173,29 @@ export const Navigation = () => {
         <Stack.Screen 
           name="PaymentConfirm" 
           component={PaymentConfirmScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="PaymentProcessing" 
+          component={PaymentProcessingScreen}
+          options={{
+            headerShown: false,
+            gestureEnabled: false,
+          }}
+        />
+        <Stack.Screen 
+          name="PaymentSuccess" 
+          component={PaymentSuccessScreen}
+          options={{
+            headerShown: false,
+            gestureEnabled: false,
+          }}
+        />
+        <Stack.Screen 
+          name="PaymentFailure" 
+          component={PaymentFailureScreen}
           options={{
             headerShown: false,
           }}
