@@ -84,7 +84,7 @@ export const ChangePINScreen: React.FC<ChangePINScreenProps> = ({ navigation }) 
       // ✅ FIXED: Use wallet.changeWalletPin to properly re-encrypt mnemonic
       await changeWalletPin(currentPin, newPin);
       
-      Alert.alert(
+      AlertManager.alert(
         '✅ PIN Changed',
         'Your wallet PIN has been updated successfully. Your funds remain secure.',
         [
