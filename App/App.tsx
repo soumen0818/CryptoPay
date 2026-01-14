@@ -4,10 +4,11 @@ import React, { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { StyleSheet, Alert } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Navigation } from './src/navigation';
-import { PINDialog } from './src/components';
+import { PINDialog, CustomAlertProvider } from './src/components';
 import { setPINDialogHandler } from './src/utils/biometric';
+import { AlertManager } from './src/utils/alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function App() {
@@ -37,7 +38,7 @@ export default function App() {
     if (pin === storedPin) {
       pinDialogConfig.resolve?.(pin);
     } else {
-      Alert.alert('Incorrect PIN', 'The PIN you entered is incorrect');
+      AlertManager.alert('Incorrect PIN', 'The PIN you entered is incorrect', undefined, { type: 'error' });
       pinDialogConfig.resolve?.(null);
     }
   };
@@ -50,15 +51,17 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.container}>
       <SafeAreaProvider>
-        <Navigation />
-        <StatusBar style="auto" />
-        <PINDialog
-          visible={pinDialogVisible}
-          title={pinDialogConfig.title}
-          message={pinDialogConfig.message}
-          onConfirm={handlePINConfirm}
-          onCancel={handlePINCancel}
-        />
+        <CustomAlertProvider>
+          <Navigation />
+          <StatusBar style="auto" />
+          <PINDialog
+            visible={pinDialogVisible}
+            title={pinDialogConfig.title}
+            message={pinDialogConfig.message}
+            onConfirm={handlePINConfirm}
+            onCancel={handlePINCancel}
+          />
+        </CustomAlertProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
