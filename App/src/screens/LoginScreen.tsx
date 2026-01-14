@@ -51,7 +51,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       const available = await isBiometricAvailable();
 
       if (!available) {
-        Alert.alert('Biometric Not Available', 'Please use your PIN to login');
+        AlertManager.alert('Biometric Not Available', 'Please use your PIN to login');
         return;
       }
 
@@ -63,7 +63,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         
         if (!storedPin) {
           // PIN not stored - prompt user to enter it once
-          Alert.alert(
+          AlertManager.alert(
             'One-Time Setup',
             'Please enter your PIN once to complete setup. This enables faucet and payment features.',
             [
@@ -71,7 +71,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 text: 'OK',
                 onPress: () => {
                   // User will need to use PIN login this time
-                  Alert.alert(
+                  AlertManager.alert(
                     'Use PIN Login',
                     'Please login with your PIN this time to complete setup.'
                   );
