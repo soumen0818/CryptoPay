@@ -75,7 +75,7 @@ export const ConfirmPINScreen: React.FC<ConfirmPINScreenProps> = ({
       }
 
       // Show success and navigate to biometric setup
-      Alert.alert(
+      AlertManager.alert(
         'Wallet Created! 🎉',
         `Your wallet address:\n${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`,
         [
@@ -87,7 +87,7 @@ export const ConfirmPINScreen: React.FC<ConfirmPINScreenProps> = ({
       );
     } catch (err) {
       console.error('Wallet creation error:', err);
-      Alert.alert('Error', 'Failed to create wallet. Please try again.');
+      AlertManager.alert('Error', 'Failed to create wallet. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -136,7 +136,7 @@ export const ConfirmPINScreen: React.FC<ConfirmPINScreenProps> = ({
         }
 
         // Show success and navigate to profile setup
-        Alert.alert(
+        AlertManager.alert(
           'Wallet Created! 🎉',
           `Your wallet address:\n${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`,
           [
@@ -151,7 +151,7 @@ export const ConfirmPINScreen: React.FC<ConfirmPINScreenProps> = ({
         );
       } catch (err) {
         console.error('Wallet creation error:', err);
-        Alert.alert('Error', 'Failed to create wallet. Please try again.');
+        AlertManager.alert('Error', 'Failed to create wallet. Please try again.');
         setConfirmPin('');
       } finally {
         setLoading(false);
