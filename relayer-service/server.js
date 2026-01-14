@@ -376,6 +376,13 @@ app.post('/faucet', limiter, async (req, res) => {
     
   } catch (error) {
     console.error('❌ Faucet error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      reason: error.reason,
+      transaction: error.transaction,
+      receipt: error.receipt
+    });
     
     // Map errors to user-friendly messages
     let errorMessage = 'Faucet claim failed';
@@ -385,11 +392,14 @@ app.post('/faucet', limiter, async (req, res) => {
       errorMessage = 'Invalid nonce - please refresh and try again';
     } else if (error.message?.includes('wait 24 hours')) {
       errorMessage = 'Please wait 24 hours between claims';
+    } else if (error.message?.includes('Only relayer')) {
+      errorMessage = 'Relayer not authorized - contract configuration error';
     }
     
     res.status(500).json({
       error: errorMessage,
-      details: process.env.NODE_ENV === 'production' ? error.message : undefined
+      details: error.message,
+      code: error.code
     });
   }
 });
