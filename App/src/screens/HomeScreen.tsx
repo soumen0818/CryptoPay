@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   RefreshControl,
-  Alert,
   Animated,
   Platform,
   FlatList,
@@ -24,6 +23,7 @@ import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS } from '../constant
 import { convertPAYtoINR } from '../utils/currency';
 import { Card, Button, LoadingSpinner, EmptyState, TransactionItem, TransactionDetailModal } from '../components';
 import type { TransactionDetail } from '../components/TransactionDetailModal';
+import { AlertManager } from '../utils/alert';
 
 interface HomeScreenProps {
   navigation: any;
@@ -132,9 +132,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const handleRequestTokens = async () => {
     if (!walletAddress) return;
 
-    Alert.alert(
+    AlertManager.alert(
       'Request Tokens',
-      'Get 100 free PAY tokens from the faucet?\n\n⏱️ One claim every 24 hours\n\n✨ Completely gasless - no MATIC needed!',
+      'Get 100 free PAY tokens from the faucet?\n\n⏱️ One claim every 24 hours\n✨ Completely gasless!',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -153,106 +153,55 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               
               if (!authenticated) {
                 setLoading(false);
-                Alert.alert('Authentication Failed', 'You must authenticate to claim tokens');
-                return;
+                return; // User cancelled auth - no need to show alert
               }
 
               const storedPin = await AsyncStorage.getItem('user_pin');
-              
-              let userPin = storedPin;
-              
               if (!storedPin) {
-                userPin = await new Promise<string | null>((resolve) => {
-                  Alert.prompt(
-                    'Enter PIN',
-                    'Please enter the 6-digit PIN you created when setting up your wallet',
-                    [
-                      { text: 'Cancel', onPress: () => resolve(null), style: 'cancel' },
-                      {
-                        text: 'OK',
-                        onPress: (pin?: string) => {
-                          if (pin && pin.length === 6) {
-                            resolve(pin);
-                          } else {
-                            Alert.alert('Invalid PIN', 'PIN must be 6 digits');
-                            resolve(null);
-                          }
-                        },
-                      },
-                    ],
-                    'plain-text',
-                    '',
-                    'numeric'
-                  );
-                });
-                
-                if (!userPin) {
-                  setLoading(false);
-                  return;
-                }
-
-                await AsyncStorage.setItem('user_pin', userPin);
+                setLoading(false);
+                AlertManager.alert('PIN Required', 'Please sign in again to claim tokens.', undefined, { type: 'warning' });
+                return;
               }
 
-              const finalPin = userPin as string;
-
-              let wallet = await getWallet(finalPin);
+              let wallet = await getWallet(storedPin);
               if (!wallet) {
                 setLoading(false);
-                Alert.alert(
-                  'Authentication Failed',
-                  'Incorrect PIN. Please try again.',
-                  [
-                    {
-                      text: 'OK',
-                      onPress: () => {
-                        if (!storedPin) {
-                          AsyncStorage.removeItem('user_pin');
-                        }
-                      }
-                    }
-                  ]
-                );
+                AlertManager.alert('Authentication Failed', 'Incorrect PIN. Please try signing in again.', undefined, { type: 'error' });
+                await AsyncStorage.removeItem('user_pin');
                 return;
               }
 
               wallet = wallet.connect(getProvider());
-
               const txHash = await claimFromFaucet(wallet);
               
-              Alert.alert(
-                '✅ Success!',
-                '100 PAY tokens are being sent to your wallet.\n\nTransaction will confirm in ~5 seconds.',
-                [
-                  {
-                    text: 'OK',
-                    onPress: () => {
-                      setTimeout(() => loadBalance(walletAddress), 6000);
-                    },
-                  },
-                ]
+              // Success - refresh balance automatically after 5 seconds
+              setTimeout(() => loadBalance(walletAddress), 5000);
+              
+              AlertManager.alert(
+                'Success!',
+                '100 PAY tokens are being sent to your wallet. Your balance will update in a few seconds.',
+                undefined,
+                { type: 'success' }
               );
             } catch (error: any) {
               console.error('Faucet error:', error);
               
-              let errorTitle = 'Faucet Error';
               let errorMessage = error.message || 'Failed to claim tokens';
               
               if (error.message?.includes('wait 24 hours')) {
-                errorTitle = 'Too Soon';
                 errorMessage = 'Please wait 24 hours between faucet claims.';
               } else if (error.message?.includes('network') || error.message?.includes('connection')) {
-                errorTitle = 'Network Error';
                 errorMessage = 'Please check your internet connection and try again.';
               }
               
-              Alert.alert(errorTitle, errorMessage);
+              AlertManager.alert('Faucet Error', errorMessage, undefined, { type: 'error' });
             } finally {
               setLoading(false);
             }
           },
         },
-      ]
+      ],
+      { type: 'info' }
     );
   };
 
