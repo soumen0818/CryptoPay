@@ -1,6 +1,8 @@
 # 📱 CryptoPay Mobile App
 
-> React Native application for CryptoPay - Making crypto payments as simple as UPI
+> React Native application for CryptoPay - Making payments as simple as UPI
+
+**💡 Note:** CryptoPay is an **INR-first money app**. Users only see ₹ amounts - blockchain technology works silently behind the scenes using a 1:1 stablecoin approach. See [INR_FIRST_IMPLEMENTATION.md](docs/INR_FIRST_IMPLEMENTATION.md) for details.
 
 [![React Native](https://img.shields.io/badge/React%20Native-0.81-blue.svg)](https://reactnative.dev/)
 [![Expo](https://img.shields.io/badge/Expo-54-black.svg)](https://expo.dev/)
@@ -30,16 +32,19 @@
 
 ## 🎯 Overview
 
-CryptoPay Mobile App is a full-featured React Native application that provides a seamless, UPI-like experience for blockchain payments. Built with Expo, it offers both consumer and merchant functionality with biometric security and real-time transaction tracking.
+CryptoPay Mobile App is a full-featured React Native application that provides a seamless, UPI-like experience for digital payments. Built with Expo, it offers both consumer and merchant functionality with biometric security and real-time transaction tracking.
+
+**Core Philosophy:** Users think in INR (₹), blockchain moves digital money silently. The app uses a 1:1 stablecoin approach where 1 token = ₹1, providing a familiar experience without crypto complexity.
 
 **Key Highlights:**
 
 - 🔐 **Secure Wallet Management** - BIP-39/44 compliant HD wallets with PIN/Biometric protection
-- 💸 **Instant Payments** - QR code scanning for fast, secure payments
+- 💸 **Instant Payments** - QR code scanning for fast, secure payments (shown in ₹)
 - 🏪 **Merchant Mode** - Built-in merchant dashboard with QR code generation
 - 📊 **Real-time Updates** - Live transaction history via Supabase
 - 🎨 **Modern UI** - Clean, intuitive design with smooth animations
 - 🔄 **Offline-First** - Works without constant internet connectivity
+- 💰 **INR-First** - All amounts displayed in ₹, blockchain hidden from users
 
 ---
 
