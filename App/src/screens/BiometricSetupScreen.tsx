@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Platform,
   Dimensions,
@@ -17,6 +16,7 @@ import * as Location from 'expo-location';
 import { isBiometricAvailable, getBiometricType, enableBiometric } from '../utils/biometric';
 import { supabase } from '../services/supabase';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../constants/theme';
+import { AlertManager } from '../utils/alert';
 
 const FONT_SIZES = TYPOGRAPHY.sizes;
 const { width, height } = Dimensions.get('window');
@@ -84,7 +84,7 @@ export const BiometricSetupScreen: React.FC<BiometricSetupScreenProps> = ({
 
       if ((needsCamera || needsLocation) && !permissionIntroShown) {
         const proceed = await new Promise<boolean>((resolve) => {
-          Alert.alert(
+          AlertManager.alert(
             'Permissions Needed',
             'CryptoPay uses Camera for QR scanning and Location for network features. We will ask once now.',
             [
@@ -140,17 +140,8 @@ export const BiometricSetupScreen: React.FC<BiometricSetupScreenProps> = ({
           console.log('Failed to update Supabase, continuing...', dbError);
         }
 
-        // Show success message with the actual biometric type
-        Alert.alert(
-          '✅ Success!',
-          `${biometricType} authentication has been enabled for your wallet`,
-          [
-            {
-              text: 'Continue',
-              onPress: () => navigateToMainTabs(),
-            },
-          ]
-        );
+        // Navigate directly - biometric is enabled
+        await navigateToMainTabs();
       } else {
         setLoading(false);
       }
