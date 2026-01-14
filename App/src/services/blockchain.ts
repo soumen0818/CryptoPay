@@ -1,8 +1,39 @@
 import { ethers } from 'ethers';
+import Constants from 'expo-constants';
 
-const RPC_URL = process.env.EXPO_PUBLIC_RPC_URL || 'https://rpc-amoy.polygon.technology';
-const TOKEN_ADDRESS = process.env.EXPO_PUBLIC_TOKEN_ADDRESS || '';
-const RELAYER_URL = process.env.EXPO_PUBLIC_RELAYER_URL || 'https://cryptopay-relayer.onrender.com'; // Path B - Advanced
+// Get environment variables with fallback to Constants.expoConfig.extra
+const getEnvVar = (key: string, fallback: string = ''): string => {
+  // Try process.env first (works in development)
+  const processEnv = process.env[key];
+  if (processEnv) return processEnv;
+  
+  // Try Constants.expoConfig.extra (works in production builds)
+  const extraConfig = Constants.expoConfig?.extra?.[key];
+  if (extraConfig) return extraConfig;
+  
+  return fallback;
+};
+
+const RPC_URL = getEnvVar('EXPO_PUBLIC_RPC_URL', 'https://rpc-amoy.polygon.technology');
+const TOKEN_ADDRESS = getEnvVar('EXPO_PUBLIC_TOKEN_ADDRESS', '0x98BE2863435E05d9E6FF8A488A54Be9aA2a0469b');
+const RELAYER_URL = getEnvVar('EXPO_PUBLIC_RELAYER_URL', 'https://cryptopay-relayer.onrender.com');
+
+// Validate TOKEN_ADDRESS is set
+if (!TOKEN_ADDRESS || TOKEN_ADDRESS === '') {
+  console.error('❌ CRITICAL: TOKEN_ADDRESS is not set!');
+  console.error('Environment check:', {
+    processEnv: process.env.EXPO_PUBLIC_TOKEN_ADDRESS,
+    constants: Constants.expoConfig?.extra?.EXPO_PUBLIC_TOKEN_ADDRESS,
+    allExtra: Constants.expoConfig?.extra
+  });
+}
+
+console.log('🔧 Blockchain Config:', {
+  RPC_URL,
+  TOKEN_ADDRESS,
+  RELAYER_URL,
+  source: TOKEN_ADDRESS === process.env.EXPO_PUBLIC_TOKEN_ADDRESS ? 'process.env' : 'Constants'
+});
 
 // ERC-20 + Faucet + Meta-Transaction ABI
 const TOKEN_ABI = [
@@ -76,31 +107,50 @@ export async function sendPaymentGasless(
       signature: signature.substring(0, 20) + '...'
     });
     
-    // Send to relayer service (relayer will pay gas)
-    const response = await fetch(`${RELAYER_URL}/relay`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: wallet.address,
-        to: toAddress,
-        amount: amount,
-        nonce: nonce.toString(),
-        signature: signature
-      })
-    });
+    // Send to relayer service with timeout (60 seconds max)
+    // Note: If this times out or fails, NO MONEY is deducted from user's account
+    // because the on-chain transaction never executes. User only signs a message.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
     
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Relayer service error');
+    try {
+      const response = await fetch(`${RELAYER_URL}/relay`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: wallet.address,
+          to: toAddress,
+          amount: amount,
+          nonce: nonce.toString(),
+          signature: signature
+        }),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      clearTimeout(timeoutId);
+    
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Relayer service error');
+      }
+      
+      const result = await response.json();
+      
+      console.log('✅ Relayer accepted transaction:', result.txHash);
+      
+      return result.txHash;
+      
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      
+      if (fetchError.name === 'AbortError') {
+        throw new Error('Transaction timeout after 1 minute. The network is slow. Your money is safe - no amount was deducted. Please try again.');
+      }
+      throw fetchError;
     }
-    
-    const result = await response.json();
-    
-    console.log('✅ Relayer accepted transaction:', result.txHash);
-    
-    return result.txHash;
     
   } catch (error: any) {
     console.error('Gasless payment error:', error);
@@ -218,6 +268,11 @@ export async function claimFromFaucet(
   wallet: ethers.HDNodeWallet | ethers.Wallet
 ): Promise<string> {
   try {
+    // Validate TOKEN_ADDRESS before proceeding
+    if (!TOKEN_ADDRESS || TOKEN_ADDRESS === '') {
+      throw new Error('Token contract address not configured. Please restart the app.');
+    }
+    
     const contract = getTokenContract(provider);
 
     // Check if can claim
@@ -243,8 +298,11 @@ export async function claimFromFaucet(
     
     console.log('📝 Signed gasless faucet claim:', {
       user: wallet.address,
+      tokenAddress: TOKEN_ADDRESS,
+      relayerUrl: RELAYER_URL,
       nonce: nonce.toString(),
-      signature: signature.substring(0, 20) + '...'
+      signature: signature.substring(0, 20) + '...',
+      messageHash: messageHash
     });
     
     // Send to relayer service (relayer will pay gas)
