@@ -54,44 +54,44 @@ export const MerchantRegistrationScreen: React.FC<
   const handleRegister = async () => {
     // Validation
     if (!businessName.trim()) {
-      Alert.alert('Error', 'Please enter your business name');
+      AlertManager.alert('Error', 'Please enter your business name');
       return;
     }
 
     if (!ownerName.trim()) {
-      Alert.alert('Error', 'Please enter the owner/contact person name');
+      AlertManager.alert('Error', 'Please enter the owner/contact person name');
       return;
     }
 
     if (!email.trim()) {
-      Alert.alert('Error', 'Please enter a business email');
+      AlertManager.alert('Error', 'Please enter a business email');
       return;
     }
 
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
+      AlertManager.alert('Error', 'Please enter a valid email address');
       return;
     }
 
     if (!phoneNumber.trim()) {
-      Alert.alert('Error', 'Please enter a contact phone number');
+      AlertManager.alert('Error', 'Please enter a contact phone number');
       return;
     }
 
     if (!businessAddress.trim()) {
-      Alert.alert('Error', 'Please enter your business address');
+      AlertManager.alert('Error', 'Please enter your business address');
       return;
     }
 
     if (!category) {
-      Alert.alert('Error', 'Please select a business category');
+      AlertManager.alert('Error', 'Please select a business category');
       return;
     }
 
     if (category === 'other' && !customCategory.trim()) {
-      Alert.alert('Error', 'Please specify your business category');
+      AlertManager.alert('Error', 'Please specify your business category');
       return;
     }
 
@@ -101,7 +101,7 @@ export const MerchantRegistrationScreen: React.FC<
       // Get wallet address
       const walletAddress = await AsyncStorage.getItem('wallet_address');
       if (!walletAddress) {
-        Alert.alert('Error', 'Wallet address not found');
+        AlertManager.alert('Error', 'Wallet address not found');
         return;
       }
 
@@ -123,21 +123,24 @@ export const MerchantRegistrationScreen: React.FC<
       });
 
       if (result.success) {
-        Alert.alert(
+        AlertManager.alert(
           'Success! 🎉',
-          'Your merchant application has been submitted. You can now access the merchant dashboard.',
+          'Your merchant application has been submitted. You can now access the merchant dashboard from your profile.',
           [
             {
-              text: 'Continue',
-              onPress: () => navigation.replace('MerchantDashboard'),
+              text: 'View Profile',
+              onPress: () => {
+                // Navigate back to Profile screen which will auto-refresh and show merchant dashboard button
+                navigation.navigate('Profile');
+              },
             },
           ]
         );
       } else {
-        Alert.alert('Error', result.error || 'Failed to register as merchant');
+        AlertManager.alert('Error', result.error || 'Failed to register as merchant');
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to register');
+      AlertManager.alert('Error', error.message || 'Failed to register');
     } finally {
       setLoading(false);
     }
