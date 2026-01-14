@@ -15,12 +15,13 @@ import { ethers } from 'ethers';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { getWallet } from '../services/wallet';
-import { getProvider, getTokenContract, claimFromFaucet } from '../services/blockchain';
+import { getProvider, getTokenContract, claimFromFaucet, canClaimFaucet, getTimeUntilNextClaim, formatTimeRemaining } from '../services/blockchain';
 import { startTransactionPolling, stopTransactionPolling } from '../services/transactionMonitor';
 import { authenticateWithBiometric, authenticateWithPIN } from '../utils/biometric';
-import { getTransactions, Transaction } from '../services/storage';
+import { getTransactions, Transaction, storageEvents } from '../services/storage';
+import { supabase } from '../services/supabase';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS } from '../constants/theme';
-import { convertPAYtoINR } from '../utils/currency';
+import { convertTokenToINR, formatINR } from '../utils/currency';
 import { Card, Button, LoadingSpinner, EmptyState, TransactionItem, TransactionDetailModal } from '../components';
 import type { TransactionDetail } from '../components/TransactionDetailModal';
 import { AlertManager } from '../utils/alert';
@@ -61,11 +62,62 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     // Start background polling for pending transactions
     startTransactionPolling(15000); // Poll every 15 seconds
     
+    // Listen for new transactions (real-time updates within same app)
+    const transactionListener = (transaction: Transaction) => {
+      console.log('📡 Received new transaction event, refreshing list...');
+      loadTransactions();
+      // Also refresh balance
+      if (walletAddress) {
+        loadBalance(walletAddress);
+      }
+    };
+    
+    storageEvents.on('transactionSaved', transactionListener);
+    console.log('🎯 Subscribed to transactionSaved events');
+    
+    // Setup Supabase real-time subscription for incoming transactions (for receivers)
+    let supabaseSubscription: any = null;
+    
+    const setupRealtimeSubscription = async () => {
+      if (!walletAddress) return;
+      
+      console.log('🔔 Setting up Supabase real-time subscription for:', walletAddress);
+      
+      supabaseSubscription = supabase
+        .channel('transactions')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'transactions',
+            filter: `to_address=eq.${walletAddress}`,
+          },
+          (payload) => {
+            console.log('💰 New incoming transaction detected!', payload);
+            loadTransactions();
+            loadBalance(walletAddress);
+          }
+        )
+        .subscribe();
+    };
+    
+    if (walletAddress) {
+      setupRealtimeSubscription();
+    }
+    
     // Cleanup on unmount
     return () => {
       stopTransactionPolling();
+      storageEvents.off('transactionSaved', transactionListener);
+      console.log('🚫 Unsubscribed from transactionSaved events');
+      
+      if (supabaseSubscription) {
+        supabase.removeChannel(supabaseSubscription);
+        console.log('🚫 Unsubscribed from Supabase real-time');
+      }
     };
-  }, []);
+  }, [walletAddress]);
 
   // Refresh transactions when screen comes into focus
   useFocusEffect(
@@ -129,16 +181,49 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     navigation.navigate('SendMoney');
   };
 
-  const handleRequestTokens = async () => {
+  const handleAddMoney = async () => {
+    // Future: Add money via UPI/Card
+    // For now, use faucet for testing
     if (!walletAddress) return;
 
+    try {
+      // Check if user can claim
+      console.log('🔍 Checking if user can claim faucet...');
+      const canClaim = await canClaimFaucet(walletAddress);
+      console.log('✅ Can claim result:', canClaim);
+      
+      if (!canClaim) {
+        // Get time remaining
+        const timeRemaining = await getTimeUntilNextClaim(walletAddress);
+        const timeFormatted = formatTimeRemaining(timeRemaining);
+        
+        console.log(`⏱️ Time remaining: ${timeRemaining}s (${timeFormatted})`);
+        
+        AlertManager.alert(
+          'Already Claimed',
+          `You can claim again in ${timeFormatted}.\n\n⏱️ One claim every 24 hours`,
+          [{ text: 'OK' }],
+          { type: 'warning' }
+        );
+        return;
+      }
+      
+      // Log time remaining even if can claim (for debugging)
+      const timeRemaining = await getTimeUntilNextClaim(walletAddress);
+      console.log(`⏱️ Time remaining (should be 0): ${timeRemaining}s`);
+      
+    } catch (error) {
+      console.error('Error checking faucet availability:', error);
+      // Continue anyway if check fails
+    }
+
     AlertManager.alert(
-      'Request Tokens',
-      'Get 100 free PAY tokens from the faucet?\n\n⏱️ One claim every 24 hours\n✨ Completely gasless!',
+      'Add Money',
+      'Get ₹100 free test money?\n\n⏱️ One claim every 24 hours',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Claim Tokens',
+          text: 'Add Money',
           onPress: async () => {
             try {
               setLoading(true);
@@ -147,19 +232,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               let authenticated = await authenticateWithBiometric();
               
               if (!authenticated) {
-                // Biometric not available or failed, use PIN
                 authenticated = await authenticateWithPIN();
               }
               
               if (!authenticated) {
                 setLoading(false);
-                return; // User cancelled auth - no need to show alert
+                return;
               }
 
               const storedPin = await AsyncStorage.getItem('user_pin');
               if (!storedPin) {
                 setLoading(false);
-                AlertManager.alert('PIN Required', 'Please sign in again to claim tokens.', undefined, { type: 'warning' });
+                AlertManager.alert('PIN Required', 'Please sign in again.', undefined, { type: 'warning' });
                 return;
               }
 
@@ -172,29 +256,41 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               }
 
               wallet = wallet.connect(getProvider());
+              console.log('📝 Attempting to claim from faucet...');
               const txHash = await claimFromFaucet(wallet);
+              console.log('✅ Faucet claim successful:', txHash);
               
               // Success - refresh balance automatically after 5 seconds
               setTimeout(() => loadBalance(walletAddress), 5000);
               
               AlertManager.alert(
                 'Success!',
-                '100 PAY tokens are being sent to your wallet. Your balance will update in a few seconds.',
+                '₹100 is being added to your wallet. Your balance will update in a few seconds.',
                 undefined,
                 { type: 'success' }
               );
             } catch (error: any) {
-              console.error('Faucet error:', error);
+              console.error('Add money error:', error);
               
-              let errorMessage = error.message || 'Failed to claim tokens';
+              let errorMessage = error.message || 'Failed to add money';
               
-              if (error.message?.includes('wait 24 hours')) {
-                errorMessage = 'Please wait 24 hours between faucet claims.';
+              // Check if error already contains formatted time
+              if (error.message?.includes('wait') && (error.message?.includes('h ') || error.message?.includes('m'))) {
+                errorMessage = error.message;
+              } else if (error.message?.includes('wait 24 hours')) {
+                // Get actual time remaining
+                try {
+                  const timeRemaining = await getTimeUntilNextClaim(walletAddress);
+                  const timeFormatted = formatTimeRemaining(timeRemaining);
+                  errorMessage = `Please wait ${timeFormatted} before claiming again.`;
+                } catch {
+                  errorMessage = 'Please wait 24 hours between claims.';
+                }
               } else if (error.message?.includes('network') || error.message?.includes('connection')) {
                 errorMessage = 'Please check your internet connection and try again.';
               }
               
-              AlertManager.alert('Faucet Error', errorMessage, undefined, { type: 'error' });
+              AlertManager.alert('Error', errorMessage, undefined, { type: 'error' });
             } finally {
               setLoading(false);
             }
@@ -249,11 +345,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </View>
           
           <View style={styles.balanceAmountContainer}>
-            <Text style={styles.balanceAmount}>{balance}</Text>
-            <Text style={styles.balanceCurrency}>PAY</Text>
+            <Text style={styles.balanceCurrency}>₹</Text>
+            <Text style={styles.balanceAmount}>{parseFloat(balance).toFixed(2)}</Text>
           </View>
           
-          <Text style={styles.balanceUsd}>≈ ₹{convertPAYtoINR(parseFloat(balance)).toFixed(2)} INR</Text>
+          <Text style={styles.balanceUsd}>Your digital money balance</Text>
         </LinearGradient>
       </Animated.View>
 
@@ -272,13 +368,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
         <TouchableOpacity
           style={styles.actionCard}
-          onPress={handleRequestTokens}
+          onPress={handleAddMoney}
           activeOpacity={0.8}
         >
           <View style={[styles.actionIconContainer, { backgroundColor: COLORS.success + '20' }]}>
             <Text style={styles.actionEmoji}>💰</Text>
           </View>
-          <Text style={styles.actionTitle}>Add money</Text>
+          <Text style={styles.actionTitle}>Add Money</Text>
         </TouchableOpacity>
 
         <TouchableOpacity

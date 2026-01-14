@@ -29,7 +29,7 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
   const [walletAddress, setWalletAddress] = useState<string>('');
   const [recipientAddress, setRecipientAddress] = useState<string>('');
   const [recipientName, setRecipientName] = useState<string>('');
-  const [amountINR, setAmountINR] = useState<string>(''); // User enters INR
+  const [amount, setAmount] = useState<string>(''); // User enters INR (1:1 with tokens)
   const [note, setNote] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [balance, setBalance] = useState<string>('0');
@@ -42,12 +42,6 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
   const [recipientFetched, setRecipientFetched] = useState<boolean>(false);
   const paymentInProgress = useRef<boolean>(false);
   const networkTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Conversion rate: 1 PAY = 0.85 INR
-  const INR_TO_PAY_RATE = 0.85;
-  
-  // Calculate PAY amount from INR
-  const amountPAY = amountINR ? (parseFloat(amountINR) / INR_TO_PAY_RATE).toFixed(2) : '0';
 
   useEffect(() => {
     loadWalletData();
@@ -60,10 +54,8 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
       setRecipientName(route.params.recipientName);
     }
     if (route?.params?.amount && parseFloat(route.params.amount) > 0) {
-      // Convert PAY amount from QR to INR for display
-      const payAmount = parseFloat(route.params.amount);
-      const inrAmount = (payAmount * INR_TO_PAY_RATE).toFixed(2);
-      setAmountINR(inrAmount);
+      // Amount is already in INR (1:1 with tokens)
+      setAmount(parseFloat(route.params.amount).toFixed(2));
       setHasPresetAmount(true);
     }
     if (route?.params?.note) {
@@ -198,15 +190,15 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
       return false;
     }
 
-    const amountNum = parseFloat(amountPAY);
-    if (!amountINR || isNaN(amountNum) || amountNum <= 0) {
+    const amountNum = parseFloat(amount);
+    if (!amount || isNaN(amountNum) || amountNum <= 0) {
       AlertManager.alert('Invalid Amount', 'Please enter a valid amount');
       return false;
     }
 
     const balanceNum = parseFloat(balance);
     if (amountNum > balanceNum) {
-      AlertManager.alert('Insufficient Balance', `You only have ${balance} PAY (₹${(parseFloat(balance) * INR_TO_PAY_RATE).toFixed(2)} INR)`);
+      AlertManager.alert('Insufficient Balance', `You only have ₹${parseFloat(balance).toFixed(2)}`);
       return false;
     }
 
@@ -218,7 +210,7 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
 
     AlertManager.alert(
       'Confirm Payment',
-      `Send ₹${amountINR} INR (${amountPAY} PAY) to\n${recipientAddress.substring(0, 10)}...${recipientAddress.substring(recipientAddress.length - 8)}${note ? `\n\nNote: ${note}` : ''}`,
+      `Send ₹${parseFloat(amount).toFixed(2)} to\n${recipientAddress.substring(0, 10)}...${recipientAddress.substring(recipientAddress.length - 8)}${note ? `\n\nNote: ${note}` : ''}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -279,18 +271,18 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
               
               navigation.replace('PaymentProcessing', {
                 transactionId: transactionId,
-                amount: amountINR,
+                amount: amount,
                 recipientName: recipientName || 'Unknown',
                 recipientAddress: recipientAddress.trim(),
               });
 
               const connectedWallet = wallet.connect(getProvider());
 
-              // Transfer tokens (in PAY) - Continue in background
+              // Transfer tokens (1:1 with INR) - Continue in background
               const txHash = await transferTokens(
                 connectedWallet,
                 recipientAddress.trim(),
-                amountPAY
+                amount
               );
 
               // Clear timeout on success
@@ -309,7 +301,7 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
                 tx_hash: txHash,
                 to_address: recipientAddress.trim(),
                 from_address: walletAddress,
-                amount: amountPAY,
+                amount: amount,
                 status: 'pending' as const,
                 // For merchant payments: merchant_name is business name, recipient_name is same
                 // For personal payments: recipient_name is the person's name (if available)
@@ -331,7 +323,7 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
                 transactionId: transactionId,
                 transactionHash: txHash,
                 fromAddress: walletAddress,
-                amount: amountINR,
+                amount: amount,
                 recipientName: recipientName || 'Unknown',
                 recipientAddress: recipientAddress.trim(),
                 processingTime: processingTime || 2,
@@ -376,7 +368,7 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
               
               // Navigate to Failure screen
               navigation.replace('PaymentFailure', {
-                amount: amountINR,
+                amount: amount,
                 recipientName: recipientName || 'Unknown',
                 recipientAddress: recipientAddress.trim(),
                 errorMessage,
@@ -457,10 +449,9 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
           <View style={styles.balanceCard}>
             <Text style={styles.balanceLabel}>Available Balance</Text>
             <View style={styles.balanceRow}>
-              <Text style={styles.balanceAmount}>{balance}</Text>
-              <Text style={styles.balanceCurrency}>PAY</Text>
+              <Text style={styles.balanceCurrency}>₹</Text>
+              <Text style={styles.balanceAmount}>{parseFloat(balance).toFixed(2)}</Text>
             </View>
-            <Text style={styles.balanceUsd}>≈ ₹{(parseFloat(balance) * 0.85).toFixed(2)} INR</Text>
           </View>
         )}
 
@@ -529,18 +520,13 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
               style={[styles.amountInput, hasPresetAmount && styles.inputDisabled]}
               placeholder="0.00"
               placeholderTextColor={COLORS.textTertiary}
-              value={amountINR}
-              onChangeText={setAmountINR}
+              value={amount}
+              onChangeText={setAmount}
               keyboardType="decimal-pad"
               editable={!hasPresetAmount}
             />
             <Text style={styles.currencyLabel}>INR</Text>
           </View>
-          {amountINR && parseFloat(amountINR) > 0 && (
-            <View style={styles.conversionInfo}>
-              <Text style={styles.conversionText}>≈ {amountPAY} PAY</Text>
-            </View>
-          )}
           {/* Quick Amount Buttons - Hide when amount is preset from QR */}
           {!hasPresetAmount && (
             <View style={styles.quickAmountContainer}>
@@ -548,7 +534,7 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
                 <TouchableOpacity
                   key={quickAmount}
                   style={styles.quickAmountButton}
-                  onPress={() => setAmountINR(quickAmount)}
+                  onPress={() => setAmount(quickAmount)}
                 >
                   <Text style={styles.quickAmountText}>₹{quickAmount}</Text>
                 </TouchableOpacity>
@@ -574,17 +560,17 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
         <TouchableOpacity
           style={[
             styles.sendButton,
-            (!recipientAddress || !amountINR || parseFloat(amountINR) <= 0) && styles.sendButtonDisabled,
+            (!recipientAddress || !amount || parseFloat(amount) <= 0) && styles.sendButtonDisabled,
           ]}
           onPress={handleSendMoney}
-          disabled={!recipientAddress || !amountINR || parseFloat(amountINR) <= 0}
+          disabled={!recipientAddress || !amount || parseFloat(amount) <= 0}
           activeOpacity={0.8}
         >
           <View style={styles.sendButtonContent}>
             <Text style={styles.sendButtonEmoji}>💸</Text>
             <Text style={styles.sendButtonText}>
-              {amountINR && parseFloat(amountINR) > 0 
-                ? `Send ₹${amountINR}` 
+              {amount && parseFloat(amount) > 0 
+                ? `Send ₹${parseFloat(amount).toFixed(2)}` 
                 : 'Enter Amount to Send'}
             </Text>
           </View>

@@ -144,7 +144,7 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
       setLoading(false);
       navigation.replace('PaymentProcessing', {
         transactionId: transactionId,
-        amount: (parseFloat(paymentData.amount) * 0.85).toFixed(2), // Convert PAY to INR
+        amount: paymentData.amount, // Amount is already in INR (1:1 with tokens)
         recipientName: merchantOrRecipientName,
         recipientAddress: paymentData.merchant,
       });
@@ -229,7 +229,7 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
             transactionId: transactionId,
             transactionHash: txHash,
             fromAddress: wallet.address,
-            amount: (parseFloat(paymentData.amount) * 0.85).toFixed(2), // Convert PAY to INR
+            amount: paymentData.amount, // Amount is already in INR (1:1 with tokens)
             recipientName: merchantOrRecipientName,
             recipientAddress: paymentData.merchant,
             processingTime,
@@ -297,7 +297,7 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
 
           // Navigate to Failure screen
           navigation.replace('PaymentFailure', {
-            amount: (parseFloat(paymentData.amount) * 0.85).toFixed(2),
+            amount: paymentData.amount,
             recipientName: merchantOrRecipientName,
             recipientAddress: paymentData.merchant,
             errorMessage,

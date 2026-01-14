@@ -1,22 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Linking,
   ScrollView,
-  Share,
   Platform,
   Switch,
   Image,
+  Share,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
+import * as MediaLibrary from 'expo-media-library';
+import { File } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import QRCode from 'react-native-qrcode-svg';
+import ViewShot from 'react-native-view-shot';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { isMerchant, getMerchantProfile } from '../services/merchant';
+import { isMerchant, getMerchantProfile, merchantEvents } from '../services/merchant';
 import { supabase } from '../services/supabase';
 import { isBiometricAvailable, getBiometricType } from '../utils/biometric';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS, BLOCKCHAIN_CONFIG } from '../constants/theme';
@@ -37,6 +41,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [showQRCode, setShowQRCode] = useState<boolean>(false);
+  const qrCodeRef = useRef<any>(null);
 
   useEffect(() => {
     loadWalletAddress();
@@ -44,6 +49,21 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     checkMerchantStatus();
     loadSettings();
     loadProfilePhoto();
+    
+    // Listen for merchant registration events (real-time updates)
+    const merchantListener = () => {
+      console.log('📡 Received merchantRegistered event, refreshing status...');
+      checkMerchantStatus();
+    };
+    
+    merchantEvents.on('merchantRegistered', merchantListener);
+    console.log('🎯 Subscribed to merchantRegistered events');
+    
+    // Cleanup on unmount
+    return () => {
+      merchantEvents.off('merchantRegistered', merchantListener);
+      console.log('🚫 Unsubscribed from merchantRegistered events');
+    };
   }, []);
 
   // Refresh merchant status when screen comes into focus
@@ -305,11 +325,68 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 
   const handleShareQRCode = async () => {
     try {
-      await Share.share({
-        message: `Send me money on CryptoPay!\n\nMy wallet: ${walletAddress}`,
-      });
+      if (qrCodeRef.current) {
+        // Capture QR code as image
+        const uri = await qrCodeRef.current.capture();
+        
+        // Try native Share API first (works better on iOS with message + image)
+        if (Platform.OS === 'ios') {
+          await Share.share({
+            url: uri,
+            message: 'Scan this QR code to send me money on CryptoPay!',
+          });
+        } else {
+          // Android - use expo-sharing
+          if (await Sharing.isAvailableAsync()) {
+            await Sharing.shareAsync(uri, {
+              mimeType: 'image/png',
+              dialogTitle: 'Scan this QR code to send me money on CryptoPay!',
+            });
+          } else {
+            AlertManager.alert('Not Available', 'Sharing is not available on this device');
+          }
+        }
+      }
     } catch (error) {
-      console.error('Error sharing:', error);
+      console.error('Error sharing QR code:', error);
+      AlertManager.alert('Error', 'Failed to share QR code');
+    }
+  };
+
+  const handleDownloadQRCode = async () => {
+    try {
+      // Request media library permissions
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      
+      if (status !== 'granted') {
+        AlertManager.alert('Permission Required', 'Please allow access to save the QR code to your gallery.');
+        return;
+      }
+
+      if (qrCodeRef.current) {
+        // Capture QR code as image
+        const uri = await qrCodeRef.current.capture();
+        
+        // Save directly to media library (no need to copy to file system first)
+        const asset = await MediaLibrary.createAssetAsync(uri);
+        
+        // Try to create album or add to existing album
+        try {
+          await MediaLibrary.createAlbumAsync('CryptoPay', asset, false);
+        } catch (albumError) {
+          // Album might already exist, just add to it
+          const albums = await MediaLibrary.getAlbumsAsync();
+          const cryptoPayAlbum = albums.find(a => a.title === 'CryptoPay');
+          if (cryptoPayAlbum) {
+            await MediaLibrary.addAssetsToAlbumAsync([asset], cryptoPayAlbum, false);
+          }
+        }
+        
+        AlertManager.alert('Success', 'QR code saved to gallery!');
+      }
+    } catch (error) {
+      console.error('Error downloading QR code:', error);
+      AlertManager.alert('Error', 'Failed to save QR code');
     }
   };
 
@@ -363,35 +440,26 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
       {/* Profile Header */}
       <View style={styles.profileHeader}>
         <TouchableOpacity style={styles.profilePhotoContainer} onPress={handlePickImage}>
-          {profilePhoto ? (
-            <Image source={{ uri: profilePhoto }} style={styles.profilePhoto} />
-          ) : (
-            <View style={styles.defaultAvatar}>
-              <Text style={styles.defaultAvatarText}>
-                {walletAddress.substring(2, 4).toUpperCase()}
-              </Text>
-            </View>
-          )}
+          <Image 
+            source={profilePhoto ? { uri: profilePhoto } : require('../../assets/default-profile-image-cryptopay.png')} 
+            style={styles.profilePhoto} 
+          />
           <View style={styles.editIconContainer}>
             <Text style={styles.editIcon}>📷</Text>
           </View>
         </TouchableOpacity>
         
         {displayName && <Text style={styles.profileName}>{displayName}</Text>}
-        <Text style={styles.profileAddress}>
-          {walletAddress.substring(0, 10)}...{walletAddress.substring(walletAddress.length - 8)}
-        </Text>
-        
-        <View style={styles.profileActions}>
-          <TouchableOpacity style={styles.profileActionButton} onPress={handleCopyAddress}>
-            <Text style={styles.profileActionIcon}>📋</Text>
-            <Text style={styles.profileActionText}>Copy</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.profileActionButton} onPress={handleShareAddress}>
-            <Text style={styles.profileActionIcon}>📤</Text>
-            <Text style={styles.profileActionText}>Share</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity 
+          style={styles.addressContainer}
+          onPress={handleCopyAddress}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.profileAddress}>
+            {walletAddress.substring(0, 10)}...{walletAddress.substring(walletAddress.length - 8)}
+          </Text>
+          <Ionicons name="copy-outline" size={20} color={COLORS.primary} />
+        </TouchableOpacity>
       </View>
 
       {/* QR Code Section */}
@@ -411,26 +479,72 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           
           {showQRCode && (
             <View style={styles.qrCodeContent}>
-              <View style={styles.qrCodeWrapper}>
-                <QRCode
-                  value={JSON.stringify({
-                    type: 'cryptopay',
-                    merchant: walletAddress,
-                    amount: '0',
-                    name: displayName || 'CryptoPay User',
-                    note: '',
-                  })}
-                  size={200}
-                  backgroundColor="white"
-                  color={COLORS.primary}
-                />
-              </View>
+              <ViewShot ref={qrCodeRef} options={{ format: 'png', quality: 1.0 }}>
+                <View style={styles.shareableQRCard}>
+                  {/* Header with Logo */}
+                  <View style={styles.shareCardHeader}>
+                    <Image 
+                      source={require('../../assets/cpay_logo.png')} 
+                      style={styles.shareCardLogo}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.shareCardTitle}>CryptoPay</Text>
+                  </View>
+                  
+                  {/* Profile Section */}
+                  <View style={styles.shareCardProfile}>
+                    <Image 
+                      source={profilePhoto ? { uri: profilePhoto } : require('../../assets/default-profile-image-cryptopay.png')} 
+                      style={styles.shareCardProfilePhoto} 
+                    />
+                    {displayName && <Text style={styles.shareCardName}>{displayName}</Text>}
+                    <Text style={styles.shareCardAddress}>
+                      {walletAddress.substring(0, 8)}...{walletAddress.substring(walletAddress.length - 6)}
+                    </Text>
+                  </View>
+                  
+                  {/* QR Code */}
+                  <View style={styles.qrCodeWrapper}>
+                    <QRCode
+                      value={JSON.stringify({
+                        type: 'cryptopay',
+                        merchant: walletAddress,
+                        amount: '0',
+                        name: displayName || 'CryptoPay User',
+                        note: '',
+                      })}
+                      size={220}
+                      backgroundColor="white"
+                      color={COLORS.primary}
+                      logo={require('../../assets/cpay_logo.png')}
+                      logoSize={45}
+                      logoBackgroundColor="white"
+                      logoMargin={2}
+                    />
+                  </View>
+                  
+                  {/* Footer */}
+                  <View style={styles.shareCardFooter}>
+                    <Text style={styles.shareCardFooterText}>Scan to send money</Text>
+                  </View>
+                </View>
+              </ViewShot>
               <Text style={styles.qrCodeDescription}>
                 Let others scan this QR code to send you money
               </Text>
-              <TouchableOpacity style={styles.shareQRButton} onPress={handleShareQRCode}>
-                <Text style={styles.shareQRButtonText}>📤 Share QR Code</Text>
-              </TouchableOpacity>
+              
+              {/* Action Buttons */}
+              <View style={styles.qrActionButtons}>
+                <TouchableOpacity style={styles.qrActionButton} onPress={handleDownloadQRCode}>
+                  <Ionicons name="download-outline" size={20} color={COLORS.text} />
+                  <Text style={styles.qrActionButtonText}>Download</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity style={[styles.qrActionButton, styles.qrShareButton]} onPress={handleShareQRCode}>
+                  <Ionicons name="share-social-outline" size={20} color={COLORS.textInverse} />
+                  <Text style={[styles.qrActionButtonText, styles.shareButtonText]}>Share</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         </TouchableOpacity>
@@ -523,15 +637,45 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
             </View>
             <Text style={styles.settingArrow}>→</Text>
           </TouchableOpacity>
+        </View>
+      </View>
 
+      {/* Account Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Account</Text>
+        <View style={styles.settingsCard}>
+          <TouchableOpacity style={styles.settingRow} onPress={() => AlertManager.alert('Coming Soon', 'Backup wallet feature will be available soon.')}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingIcon}>💾</Text>
+              <View>
+                <Text style={styles.settingLabel}>Backup Wallet</Text>
+                <Text style={styles.settingDescription}>Export private key</Text>
+              </View>
+            </View>
+            <Text style={styles.settingArrow}>→</Text>
+          </TouchableOpacity>
+          
           <View style={styles.settingDivider} />
           
-          <TouchableOpacity style={styles.settingRow} onPress={handleViewOnExplorer}>
+          <TouchableOpacity style={styles.settingRow} onPress={() => AlertManager.alert('Coming Soon', 'Recovery phrase feature will be available soon.')}>
             <View style={styles.settingInfo}>
-              <Text style={styles.settingIcon}>🔍</Text>
+              <Text style={styles.settingIcon}>🔑</Text>
               <View>
-                <Text style={styles.settingLabel}>View on Explorer</Text>
-                <Text style={styles.settingDescription}>Blockchain explorer</Text>
+                <Text style={styles.settingLabel}>Recovery Phrase</Text>
+                <Text style={styles.settingDescription}>View seed phrase</Text>
+              </View>
+            </View>
+            <Text style={styles.settingArrow}>→</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.settingDivider} />
+          
+          <TouchableOpacity style={styles.settingRow} onPress={() => AlertManager.alert('Coming Soon', 'Transaction limits feature will be available soon.')}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingIcon}>⚖️</Text>
+              <View>
+                <Text style={styles.settingLabel}>Transaction Limits</Text>
+                <Text style={styles.settingDescription}>Daily & monthly limits</Text>
               </View>
             </View>
             <Text style={styles.settingArrow}>→</Text>
@@ -579,6 +723,30 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
               <Text style={styles.settingIcon}>🔒</Text>
               <View>
                 <Text style={styles.settingLabel}>Privacy Policy</Text>
+              </View>
+            </View>
+            <Text style={styles.settingArrow}>→</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.settingDivider} />
+          
+          <TouchableOpacity style={styles.settingRow} onPress={() => AlertManager.alert('Terms of Service', 'Coming soon')}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingIcon}>📄</Text>
+              <View>
+                <Text style={styles.settingLabel}>Terms of Service</Text>
+              </View>
+            </View>
+            <Text style={styles.settingArrow}>→</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.settingDivider} />
+          
+          <TouchableOpacity style={styles.settingRow} onPress={() => AlertManager.alert('About CryptoPay', 'Version 1.0.0\n\nCryptoPay is a modern INR-first digital payment app built on blockchain technology.\n\nNetwork: Polygon Amoy Testnet\n\n© 2026 CryptoPay')}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingIcon}>ℹ️</Text>
+              <View>
+                <Text style={styles.settingLabel}>About</Text>
               </View>
             </View>
             <Text style={styles.settingArrow}>→</Text>
@@ -669,34 +837,22 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: SPACING.xs,
   },
-  profileAddress: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    marginBottom: SPACING.md,
-  },
-  profileActions: {
-    flexDirection: 'row',
-    marginHorizontal: -SPACING.xs,
-  },
-  profileActionButton: {
+  addressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.surface,
     paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
+    paddingVertical: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
-    marginHorizontal: SPACING.xs,
+    marginBottom: SPACING.md,
     ...SHADOWS.sm,
   },
-  profileActionIcon: {
-    fontSize: 16,
-    marginRight: SPACING.xs,
-  },
-  profileActionText: {
+  profileAddress: {
     fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.text,
+    color: COLORS.textSecondary,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    flex: 1,
+    marginRight: SPACING.sm,
   },
   section: {
     marginBottom: SPACING.xl,
@@ -741,6 +897,62 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: SPACING.lg,
   },
+  shareableQRCard: {
+    backgroundColor: '#ffffff',
+    padding: SPACING.xl,
+    borderRadius: BORDER_RADIUS.lg,
+    alignItems: 'center',
+    width: 320,
+  },
+  shareCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  shareCardLogo: {
+    width: 40,
+    height: 40,
+    marginRight: SPACING.sm,
+  },
+  shareCardTitle: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  shareCardProfile: {
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  shareCardProfilePhoto: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    marginBottom: SPACING.sm,
+  },
+  shareCardName: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: SPACING.xs,
+  },
+  shareCardAddress: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  shareCardFooter: {
+    marginTop: SPACING.lg,
+    paddingTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  shareCardFooterText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
   qrCodeWrapper: {
     padding: SPACING.lg,
     backgroundColor: '#ffffff',
@@ -754,15 +966,36 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
     marginBottom: SPACING.md,
   },
-  shareQRButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-    borderRadius: BORDER_RADIUS.md,
+  qrActionButtons: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    width: '100%',
+    paddingHorizontal: SPACING.md,
   },
-  shareQRButtonText: {
-    fontSize: FONT_SIZES.md,
+  qrActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.surface,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.sm,
+  },
+  qrShareButton: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  qrActionButtonText: {
+    fontSize: FONT_SIZES.sm,
     fontWeight: '600',
+    color: COLORS.text,
+    marginLeft: SPACING.xs,
+  },
+  shareButtonText: {
     color: COLORS.textInverse,
   },
   merchantCard: {

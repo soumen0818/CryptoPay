@@ -130,7 +130,7 @@ export const PaymentSuccessScreen: React.FC<PaymentSuccessScreenProps> = ({
     tx_hash: transactionHash,
     from_address: fromAddress,
     to_address: recipientAddress,
-    amount: (parseFloat(amount) / 0.85).toFixed(2), // Convert back to PAY
+    amount: amount, // Amount is already in INR (1:1 with tokens)
     status: 'success',
     created_at: new Date().toISOString(),
     merchant_name: isMerchantPayment ? recipientName : undefined,

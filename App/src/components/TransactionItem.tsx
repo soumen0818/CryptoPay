@@ -106,7 +106,7 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
   };
 
   const amount = parseFloat(transaction.amount);
-  const inrAmount = convertPAYtoINR(amount);
+  const inrAmount = convertPAYtoINR(amount); // Now 1:1 conversion
 
   return (
     <TouchableOpacity
@@ -131,10 +131,7 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
             styles.transactionAmount,
             { color: isReceived ? '#10b981' : COLORS.text }
           ]}>
-            {isReceived ? '+' : '-'}{amount.toFixed(2)} PAY
-          </Text>
-          <Text style={styles.transactionAmountINR}>
-            ≈ ₹{inrAmount.toFixed(2)}
+            {isReceived ? '+' : '-'}₹{inrAmount.toFixed(2)}
           </Text>
         </View>
       </View>

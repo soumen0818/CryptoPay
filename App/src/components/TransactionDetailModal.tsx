@@ -104,9 +104,8 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
             {/* Amount Section */}
             <View style={styles.amountSection}>
               <Text style={[styles.amountValue, { color: isMerchantView || isReceived ? '#10b981' : COLORS.text }]}>
-                {isMerchantView || isReceived ? '+' : '-'}{amount.toFixed(2)} PAY
+                {isMerchantView || isReceived ? '+' : '-'}₹{inrAmount.toFixed(2)}
               </Text>
-              <Text style={styles.amountINR}>≈ ₹{inrAmount.toFixed(2)} INR</Text>
             </View>
 
             {/* Status Badge */}

@@ -220,7 +220,7 @@ export const MerchantQRGeneratorScreen: React.FC<MerchantQRGeneratorScreenProps>
                   </View>
                   {amount && parseFloat(amount) > 0 && (
                     <Text style={styles.payEquivalent}>
-                      ≈ {formatPAY(convertINRtoPAY(parseFloat(amount)))} (1 PAY = ₹0.85)
+
                     </Text>
                   )}
                   <Text style={styles.hint}>

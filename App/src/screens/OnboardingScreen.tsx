@@ -57,7 +57,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }
           <FeatureItem 
             icon="🆓" 
             title="Gasless Payments" 
-            description="We cover network fees. You just pay with PAY tokens."
+            description="We cover network fees. You just send money in ₹."
           />
           <FeatureItem 
             icon="📱" 
