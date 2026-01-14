@@ -50,13 +50,13 @@ export const ForgotPINScreen: React.FC<ForgotPINScreenProps> = ({ navigation }) 
       setHasBackup(backup);
       
       if (!available) {
-        Alert.alert(
+        AlertManager.alert(
           'Biometric Not Available',
           'Your device does not have biometric authentication enabled. PIN recovery is not available.',
           [{ text: 'OK', onPress: () => navigation.goBack() }]
         );
       } else if (!backup) {
-        Alert.alert(
+        AlertManager.alert(
           'No Backup Available',
           'This wallet was created without biometric backup. PIN recovery is not available.\n\nYou will need to reset the app and create a new wallet.',
           [{ text: 'OK', onPress: () => navigation.goBack() }]
@@ -69,7 +69,7 @@ export const ForgotPINScreen: React.FC<ForgotPINScreenProps> = ({ navigation }) 
 
   const handleRecovery = async () => {
     if (!biometricAvailable || !hasBackup) {
-      Alert.alert('Error', 'Biometric recovery is not available');
+      AlertManager.alert('Error', 'Biometric recovery is not available');
       return;
     }
 
@@ -85,7 +85,7 @@ export const ForgotPINScreen: React.FC<ForgotPINScreenProps> = ({ navigation }) 
       setRecoveredMnemonic(mnemonic);
       setStep('new-pin');
       
-      Alert.alert(
+      AlertManager.alert(
         '✅ Wallet Recovered',
         'Your wallet has been recovered! Now create a new PIN to secure it.',
         [{ text: 'OK' }]
@@ -94,9 +94,9 @@ export const ForgotPINScreen: React.FC<ForgotPINScreenProps> = ({ navigation }) 
       console.error('Recovery error:', error);
       
       if (error.message?.includes('cancel')) {
-        Alert.alert('Cancelled', 'Recovery was cancelled');
+        AlertManager.alert('Cancelled', 'Recovery was cancelled');
       } else {
-        Alert.alert(
+        AlertManager.alert(
           'Recovery Failed',
           error.message || 'Failed to recover wallet. Please try again.'
         );
@@ -146,7 +146,7 @@ export const ForgotPINScreen: React.FC<ForgotPINScreenProps> = ({ navigation }) 
 
         const walletAddress = await recreateWalletFromMnemonic(recoveredMnemonic, newPin);
 
-        Alert.alert(
+        AlertManager.alert(
           '🎉 PIN Reset Successful',
           `Your new PIN has been set!\n\nWallet: ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`,
           [
@@ -158,7 +158,7 @@ export const ForgotPINScreen: React.FC<ForgotPINScreenProps> = ({ navigation }) 
         );
       } catch (error: any) {
         console.error('PIN reset error:', error);
-        Alert.alert('Error', 'Failed to reset PIN. Please try again.');
+        AlertManager.alert('Error', 'Failed to reset PIN. Please try again.');
         setStep('new-pin');
         setNewPin('');
         setConfirmPin('');
