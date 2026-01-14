@@ -2,7 +2,7 @@
   "expo": {
     "name": "CryptoPay",
     "slug": "cryptopay",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/cpay_logo.png",
     "userInterfaceStyle": "automatic",
@@ -64,12 +64,24 @@
           "faceIDPermission": "Use Face ID to quickly and securely access your wallet"
         }
       ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow CryptoPay to save QR codes to your photos.",
+          "savePhotosPermission": "Allow CryptoPay to save QR codes to your photos.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ],
       "expo-font"
     ],
     "extra": {
       "eas": {
         "projectId": "3c7a4ef7-ad99-42d0-8b88-0ee8e28542c9"
-      }
+      },
+      "EXPO_PUBLIC_RPC_URL": "https://rpc-amoy.polygon.technology",
+      "EXPO_PUBLIC_CHAIN_ID": "80002",
+      "EXPO_PUBLIC_TOKEN_ADDRESS": "0x98BE2863435E05d9E6FF8A488A54Be9aA2a0469b",
+      "EXPO_PUBLIC_RELAYER_URL": "https://cryptopay-relayer.onrender.com"
     }
   }
 }
