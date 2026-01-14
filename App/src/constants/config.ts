@@ -1,9 +1,24 @@
+import Constants from 'expo-constants';
+
+// Get environment variables with fallback to Constants.expoConfig.extra
+const getEnvVar = (key: string, fallback: string = ''): string => {
+  // Try process.env first (works in development)
+  const processEnv = process.env[key];
+  if (processEnv) return processEnv;
+  
+  // Try Constants.expoConfig.extra (works in production builds)
+  const extraConfig = Constants.expoConfig?.extra?.[key];
+  if (extraConfig) return extraConfig;
+  
+  return fallback;
+};
+
 // Blockchain Configuration
 export const BLOCKCHAIN_CONFIG = {
-  RPC_URL: process.env.EXPO_PUBLIC_RPC_URL || 'https://rpc-amoy.polygon.technology',
-  TOKEN_ADDRESS: process.env.EXPO_PUBLIC_TOKEN_ADDRESS || '',
-  RELAYER_URL: process.env.EXPO_PUBLIC_RELAYER_URL || 'https://cryptopay-relayer.onrender.com', // Path B - Advanced
-  CHAIN_ID: parseInt(process.env.EXPO_PUBLIC_CHAIN_ID || '80002'),
+  RPC_URL: getEnvVar('EXPO_PUBLIC_RPC_URL', 'https://rpc-amoy.polygon.technology'),
+  TOKEN_ADDRESS: getEnvVar('EXPO_PUBLIC_TOKEN_ADDRESS', '0x98BE2863435E05d9E6FF8A488A54Be9aA2a0469b'),
+  RELAYER_URL: getEnvVar('EXPO_PUBLIC_RELAYER_URL', 'https://cryptopay-relayer.onrender.com'),
+  CHAIN_ID: parseInt(getEnvVar('EXPO_PUBLIC_CHAIN_ID', '80002')),
   CHAIN_NAME: 'Polygon Amoy Testnet',
   EXPLORER_URL: 'https://amoy.polygonscan.com',
   FAUCET_URL: 'https://faucet.polygon.technology/',
