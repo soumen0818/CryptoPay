@@ -41,7 +41,7 @@ export const MerchantGlobalQRScreen: React.FC<MerchantGlobalQRScreenProps> = ({
     try {
       const address = await AsyncStorage.getItem('wallet_address');
       if (!address) {
-        Alert.alert('Error', 'Wallet address not found');
+        AlertManager.alert('Error', 'Wallet address not found');
         return;
       }
 
@@ -65,7 +65,7 @@ export const MerchantGlobalQRScreen: React.FC<MerchantGlobalQRScreenProps> = ({
       }
     } catch (error) {
       console.error('Error loading merchant QR:', error);
-      Alert.alert('Error', 'Failed to load merchant QR code');
+      AlertManager.alert('Error', 'Failed to load merchant QR code');
     } finally {
       setLoading(false);
     }
@@ -104,13 +104,13 @@ export const MerchantGlobalQRScreen: React.FC<MerchantGlobalQRScreenProps> = ({
           if (await Sharing.isAvailableAsync()) {
             await Sharing.shareAsync(file.uri);
           } else {
-            Alert.alert('Success', 'QR Code saved successfully!');
+            AlertManager.alert('Success', 'QR Code saved successfully!');
           }
         });
       }
     } catch (error) {
       console.error('Error downloading QR:', error);
-      Alert.alert('Error', 'Failed to download QR code');
+      AlertManager.alert('Error', 'Failed to download QR code');
     }
   };
 
@@ -139,7 +139,7 @@ export const MerchantGlobalQRScreen: React.FC<MerchantGlobalQRScreenProps> = ({
       }
     } catch (error) {
       console.error('Error sharing QR image:', error);
-      Alert.alert('Error', 'Failed to share QR code');
+      AlertManager.alert('Error', 'Failed to share QR code');
     }
   };
 
