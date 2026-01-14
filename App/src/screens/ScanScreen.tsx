@@ -71,7 +71,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation, route }) => 
       const paymentData = parsePaymentQR(data);
 
       if (!paymentData) {
-        Alert.alert(
+        AlertManager.alert(
           'Invalid QR Code',
           'Please scan a valid wallet QR code or payment request.',
           [{ text: 'Scan Again', onPress: () => { setScanned(false); setLoading(false); } }]
@@ -82,7 +82,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation, route }) => 
       // Validate payment data
       const validation = validatePaymentQR(paymentData);
       if (!validation.valid) {
-        Alert.alert('Invalid Payment', validation.error || 'Invalid payment data', [
+        AlertManager.alert('Invalid Payment', validation.error || 'Invalid payment data', [
           { text: 'Scan Again', onPress: () => { setScanned(false); setLoading(false); } },
         ]);
         return;
@@ -104,7 +104,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation, route }) => 
     } catch (error) {
       console.error('Error processing QR code:', error);
       setLoading(false);
-      Alert.alert('Error', 'Failed to process QR code. Please try again.', [
+      AlertManager.alert('Error', 'Failed to process QR code. Please try again.', [
         { text: 'Scan Again', onPress: () => setScanned(false) },
       ]);
     }
@@ -121,7 +121,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation, route }) => 
       if (!result.canceled && result.assets && result.assets[0]) {
         // For now, show a message that QR scanning from image requires additional setup
         // In production, you'd use a library like jsQR to decode the QR from the image
-        Alert.alert(
+        AlertManager.alert(
           'Gallery QR Scanning',
           'This feature requires QR code detection from images. Please use camera to scan QR codes.',
           [{ text: 'OK' }]
@@ -129,7 +129,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation, route }) => 
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image from gallery');
+      AlertManager.alert('Error', 'Failed to pick image from gallery');
     }
   };
 

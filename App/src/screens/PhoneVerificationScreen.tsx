@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -18,6 +17,7 @@ import { sendOTP, verifyOTP, getDevPhoneNumber, getDevOTP, getRemainingAttempts 
 import { hasWallet } from '../services/wallet';
 import { supabase } from '../services/supabase';
 import { COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS, SHADOWS } from '../constants/theme';
+import { AlertManager } from '../utils/alert';
 
 const FONT_SIZES = TYPOGRAPHY.sizes;
 const { width, height } = Dimensions.get('window');
@@ -66,7 +66,7 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
 
   const handleSendOTP = async () => {
     if (!phoneNumber || phoneNumber.length < 10) {
-      Alert.alert('Error', 'Please enter a valid phone number');
+      AlertManager.alert('Error', 'Please enter a valid phone number');
       return;
     }
 
@@ -88,16 +88,16 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
       if (result.remainingAttempts !== undefined) {
         setRemainingAttempts(result.remainingAttempts);
       }
-      Alert.alert('OTP Sent', 'Please check your SMS for the verification code');
+      AlertManager.alert('OTP Sent', 'Please check your SMS for the verification code');
     } else {
       if (result.resetTime) {
         const hours = Math.ceil((result.resetTime.getTime() - Date.now()) / (1000 * 60 * 60));
-        Alert.alert(
+        AlertManager.alert(
           'Rate Limit Exceeded',
           `You've reached the maximum OTP requests for today. Try again in ${hours} hour${hours > 1 ? 's' : ''}.`
         );
       } else {
-        Alert.alert('Error', result.error || 'Failed to send OTP');
+        AlertManager.alert('Error', result.error || 'Failed to send OTP');
       }
       if (result.remainingAttempts !== undefined) {
         setRemainingAttempts(result.remainingAttempts);
@@ -109,7 +109,7 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
 
   const handleVerifyOTP = async () => {
     if (!otp || otp.length !== 6) {
-      Alert.alert('Error', 'Please enter a valid 6-digit OTP');
+      AlertManager.alert('Error', 'Please enter a valid 6-digit OTP');
       return;
     }
 
@@ -139,7 +139,7 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
         if (!isDevPhone) {
           if (storedPhone !== verifiedPhone) {
             // Phone number doesn't match - this might be a different account
-            Alert.alert(
+            AlertManager.alert(
               'Account Mismatch',
               'This phone number is not associated with the wallet on this device. Please use the correct phone number or create a new wallet.',
               [
@@ -167,7 +167,7 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
           if (dbError || !userData) {
             console.log('No database record found, using local data');
           } else if (userData.wallet_address !== walletAddress) {
-            Alert.alert(
+            AlertManager.alert(
               'Account Mismatch',
               'This phone number is associated with a different wallet. Please use the correct phone number.',
               [
@@ -190,7 +190,7 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
         }
         
         // Phone and wallet match - allow login
-        Alert.alert('Welcome Back!', 'Phone verified successfully! ✓', [
+        AlertManager.alert('Welcome Back!', 'Phone verified successfully! ✓', [
           {
             text: 'Continue',
             onPress: () => navigation.replace('MainTabs'),
@@ -198,7 +198,7 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
         ]);
       } else {
         // New user - needs to create PIN and wallet
-        Alert.alert('Success', 'Phone number verified! ✓', [
+        AlertManager.alert('Success', 'Phone number verified! ✓', [
           {
             text: 'Continue',
             onPress: () => navigation.replace('CreatePIN', {
@@ -208,7 +208,7 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
         ]);
       }
     } else {
-      Alert.alert('Error', result.error || 'Invalid OTP');
+      AlertManager.alert('Error', result.error || 'Invalid OTP');
       setOtp('');
     }
 

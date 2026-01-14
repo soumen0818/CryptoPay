@@ -18,10 +18,16 @@ import { TransactionItem, LoadingSpinner, EmptyState, TransactionDetailModal } f
 
 interface TransactionHistoryScreenProps {
   navigation: any;
+  route?: {
+    params?: {
+      highlightTransaction?: string;
+    };
+  };
 }
 
 export const TransactionHistoryScreen: React.FC<TransactionHistoryScreenProps> = ({
   navigation,
+  route,
 }) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,9 +36,25 @@ export const TransactionHistoryScreen: React.FC<TransactionHistoryScreenProps> =
   const [currentWallet, setCurrentWallet] = useState<string>('');
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
+  
   useEffect(() => {
     loadWalletAddress();
     loadTransactions();
+
+    // If a specific transaction should be highlighted, show it
+    if (route?.params?.highlightTransaction) {
+      // Wait for transactions to load, then show the modal
+      const timer = setTimeout(() => {
+        const highlightedTx = transactions.find(
+          tx => tx.tx_hash === route.params?.highlightTransaction
+        );
+        if (highlightedTx) {
+          setSelectedTransaction(highlightedTx);
+          setShowTransactionModal(true);
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
 
     // Subscribe to real-time updates from Supabase
     console.log('📡 Subscribing to real-time transaction updates...');

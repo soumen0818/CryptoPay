@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -17,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../services/supabase';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS } from '../constants/theme';
 import { Button, LoadingSpinner } from '../components';
+import { AlertManager } from '../utils/alert';
 
 interface ProfileSetupScreenProps {
   navigation: any;
@@ -31,11 +31,11 @@ export const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({ navigati
 
   const handlePickImage = async () => {
     try {
+      // Request permission - system will show dialog automatically
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please allow access to your photos.');
-        return;
+        return; // User denied permission - system already showed dialog
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -110,7 +110,7 @@ export const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({ navigati
 
   const handleComplete = async () => {
     if (!fullName.trim()) {
-      Alert.alert('Name Required', 'Please enter your full name to continue.');
+      AlertManager.alert('Name Required', 'Please enter your full name to continue.', undefined, { type: 'warning' });
       return;
     }
 
@@ -164,19 +164,11 @@ export const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({ navigati
       // Mark profile as complete
       await AsyncStorage.setItem('profile_complete', 'true');
 
-      Alert.alert(
-        'Profile Created! 🎉',
-        'Welcome to CryptoPay! Next, let\'s set up quick authentication.',
-        [
-          {
-            text: 'Continue',
-            onPress: () => navigation.replace('BiometricSetup'),
-          },
-        ]
-      );
+      // Navigate directly without alert - profile is auto-saved
+      navigation.replace('BiometricSetup');
     } catch (error) {
       console.error('Profile setup error:', error);
-      Alert.alert('Error', 'Failed to save profile. Please try again.');
+      AlertManager.alert('Error', 'Failed to save profile. Please try again.', undefined, { type: 'error' });
     } finally {
       setLoading(false);
     }

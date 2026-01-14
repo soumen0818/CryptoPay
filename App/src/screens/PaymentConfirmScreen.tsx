@@ -11,13 +11,14 @@ import { PaymentQRData } from '../utils/qrCode';
 import { authenticateWithBiometric } from '../utils/biometric';
 import { getWallet } from '../services/wallet';
 import { sendPayment, getProvider } from '../services/blockchain';
-import { saveTransaction } from '../services/storage';
+import { saveTransaction, generateTransactionId } from '../services/storage';
 import { monitorTransaction } from '../services/transactionMonitor';
 import { getMerchantById, getMerchantByAddress } from '../services/merchant';
 import { checkTransactionLimit, recordTransaction, checkRateLimit, recordAction } from '../services/securityLimits';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS } from '../constants/theme';
-import { Button, Card, SuccessAnimation } from '../components';
+import { Button, Card } from '../components';
+import { AlertManager } from '../utils/alert';
 
 interface PaymentConfirmScreenProps {
   navigation: any;
@@ -39,7 +40,6 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
 }) => {
   const { paymentData, merchantDetails } = route.params;
   const [loading, setLoading] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
   const [merchantInfo, setMerchantInfo] = useState<{
     id?: string;
     business_name: string;
@@ -82,14 +82,6 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
     loadMerchantDetails();
   }, [paymentData, merchantDetails]);
 
-  const showSuccessAnimation = () => {
-    setShowSuccess(true);
-  };
-
-  const handleSuccessComplete = () => {
-    navigation.navigate('MainTabs', { screen: 'Home' });
-  };
-
   const pollTransactionStatus = async (txHash: string, paymentData: PaymentQRData) => {
     try {
       console.log('🔄 Starting background transaction monitoring:', txHash);
@@ -107,16 +99,13 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
 
   const handleConfirmPayment = async () => {
     try {
-      setLoading(true);
-
       // Phase 4: Check rate limiting
       const rateLimitCheck = await checkRateLimit('payment');
       if (!rateLimitCheck.allowed) {
-        Alert.alert(
+        AlertManager.alert(
           'Too Many Requests',
           'Please wait a moment before trying again.'
         );
-        setLoading(false);
         return;
       }
       await recordAction('payment');
@@ -125,35 +114,51 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
       const limitCheck = await checkTransactionLimit(paymentData.amount);
       
       if (!limitCheck.allowed) {
-        Alert.alert(
+        AlertManager.alert(
           'Transaction Limit Exceeded',
           limitCheck.reason || 'This transaction exceeds your daily limits.'
         );
-        setLoading(false);
         return;
       }
 
+      // Show loading during authentication
+      setLoading(true);
+      
       // Step 1: Biometric authentication
       const authenticated = await authenticateWithBiometric();
 
       if (!authenticated) {
-        Alert.alert('Authentication Failed', 'Payment cancelled');
+        AlertManager.alert('Authentication Failed', 'Payment cancelled');
         setLoading(false);
         return;
       }
 
-      // Phase 2: Optimistic UX - Generate temporary transaction ID immediately
+      // Get merchant/recipient name
+      const merchantOrRecipientName = merchantInfo?.business_name || paymentData.name || 'Unknown';
+      const isMerchantPayment = !!(paymentData.merchantId || merchantInfo?.id);
+      
+      // Generate transaction ID upfront
+      const transactionId = generateTransactionId();
+      
+      // Navigate to Processing screen immediately after authentication
+      setLoading(false);
+      navigation.replace('PaymentProcessing', {
+        transactionId: transactionId,
+        amount: (parseFloat(paymentData.amount) * 0.85).toFixed(2), // Convert PAY to INR
+        recipientName: merchantOrRecipientName,
+        recipientAddress: paymentData.merchant,
+      });
+
+      // Phase 2: Execute blockchain transaction with timeout
       const tempTxId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const submittedAt = new Date().toISOString();
+      const startTime = Date.now();
 
-      // Save transaction as "processing" (internal) but "success" (user-visible)
-      // Determine if this is a merchant payment based on QR data
-      const isMerchantPayment = !!(paymentData.merchantId || merchantInfo?.id);
+      // Save transaction as "processing"
       const merchantId = paymentData.merchantId || merchantInfo?.id || null;
       
       // Get sender's name from AsyncStorage
       const senderName = await AsyncStorage.getItem('user_name');
-      const merchantOrRecipientName = merchantInfo?.business_name || paymentData.name;
 
       await saveTransaction({
         tx_hash: tempTxId,
@@ -161,7 +166,7 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
         amount: paymentData.amount,
         status: 'pending',
         internal_status: 'processing',
-        user_visible_status: 'success', // Show success to user immediately!
+        user_visible_status: 'pending',
         merchant_name: isMerchantPayment ? merchantOrRecipientName : undefined,
         recipient_name: merchantOrRecipientName,
         sender_name: senderName || undefined,
@@ -171,12 +176,8 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
         submitted_at: submittedAt,
       });
 
-      // Step 2: Show success immediately (Invisible Rail - optimistic UX)
-      setLoading(false);
-      showSuccessAnimation();
-
-      // Step 3: Execute blockchain transaction in background (don't await)
-      (async () => {
+      // Step 3: Execute blockchain transaction with timeout
+      setTimeout(async () => {
         try {
           // Get stored PIN and retrieve wallet
           const storedPin = await AsyncStorage.getItem('user_pin');
@@ -189,7 +190,7 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
             throw new Error('Failed to access wallet');
           }
 
-          // Send payment transaction
+          // Send payment transaction with built-in 30s timeout
           const txHash = await sendPayment(
             wallet,
             paymentData.merchant,
@@ -198,13 +199,18 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
 
           console.log('✅ Transaction submitted to blockchain:', txHash);
 
+          // Calculate processing time
+          const processingTime = Math.round((Date.now() - startTime) / 1000);
+
           // Phase 4: Record successful transaction for limit tracking
           await recordTransaction(paymentData.amount);
 
-          // Update transaction with real hash and status
+          // Update transaction with transaction_id
           await saveTransaction({
+            transaction_id: transactionId,
             tx_hash: txHash,
             to_address: paymentData.merchant,
+            from_address: wallet.address,
             amount: paymentData.amount,
             status: 'pending',
             internal_status: 'submitted',
@@ -218,6 +224,27 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
             submitted_at: submittedAt,
           });
 
+          // Navigate to Success screen
+          navigation.replace('PaymentSuccess', {
+            transactionId: transactionId,
+            transactionHash: txHash,
+            fromAddress: wallet.address,
+            amount: (parseFloat(paymentData.amount) * 0.85).toFixed(2), // Convert PAY to INR
+            recipientName: merchantOrRecipientName,
+            recipientAddress: paymentData.merchant,
+            processingTime,
+            timestamp: new Date().toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true,
+            }),
+            note: paymentData.note,
+            isMerchantPayment,
+          });
+
           // Start background monitoring for confirmation
           pollTransactionStatus(txHash, paymentData);
 
@@ -226,12 +253,28 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
 
           // Map error to user-friendly message
           let failureReason = 'Payment failed. Please try again.';
-          if (backgroundError.message?.includes('insufficient funds')) {
-            failureReason = 'Insufficient balance';
+          let errorMessage = 'Transaction Failed';
+          
+          if (backgroundError.message?.includes('timeout') || backgroundError.message?.includes('slow')) {
+            failureReason = 'Transaction timed out after 1 minute. Your money is safe - no amount was deducted. The network is experiencing delays. Please try again.';
+            errorMessage = 'Network Timeout';
+          } else if (backgroundError.message?.includes('insufficient funds') || backgroundError.message?.includes('Insufficient')) {
+            failureReason = 'You don\'t have enough balance to complete this transaction.';
+            errorMessage = 'Insufficient Balance';
           } else if (backgroundError.message?.includes('INSUFFICIENT_GAS')) {
-            failureReason = 'Network fee too high';
+            failureReason = 'Network fees are too high right now. Please try again later.';
+            errorMessage = 'High Network Fees';
           } else if (backgroundError.message?.includes('gas')) {
-            failureReason = 'Unable to process payment';
+            failureReason = 'Unable to process payment due to network issues.';
+            errorMessage = 'Network Error';
+          } else if (backgroundError.message?.includes('network') || backgroundError.message?.includes('Failed to fetch')) {
+            failureReason = 'Unable to connect to blockchain network. Check your internet connection.';
+            errorMessage = 'Network Connection Failed';
+          } else if (backgroundError.message?.includes('temporarily unavailable')) {
+            failureReason = 'Payment service is temporarily unavailable. Your money is safe. Please try again in a few moments.';
+            errorMessage = 'Service Unavailable';
+          } else {
+            failureReason = backgroundError.message + ' Your money is safe - no amount was deducted.';
           }
 
           // Update transaction to failed
@@ -252,8 +295,22 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
             failure_reason: failureReason,
           });
 
-          // User already saw success animation, failure will show in transaction history
-          console.log('Transaction marked as failed. User will see in history.');
+          // Navigate to Failure screen
+          navigation.replace('PaymentFailure', {
+            amount: (parseFloat(paymentData.amount) * 0.85).toFixed(2),
+            recipientName: merchantOrRecipientName,
+            recipientAddress: paymentData.merchant,
+            errorMessage,
+            errorReason: failureReason,
+            timestamp: new Date().toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true,
+            }),
+          });
         }
       })();
 
@@ -269,7 +326,7 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
         return;
       }
 
-      Alert.alert('Payment Failed', errorMessage);
+      AlertManager.alert('Payment Failed', errorMessage);
     }
   };
 
@@ -352,9 +409,6 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
           Biometric authentication required to confirm payment
         </Text>
       </View>
-
-      {/* Success Animation Overlay */}
-      <SuccessAnimation visible={showSuccess} onComplete={handleSuccessComplete} />
     </View>
   );
 };

@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Alert,
   ScrollView,
   Platform,
   KeyboardAvoidingView,
@@ -15,10 +14,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ethers } from 'ethers';
 import { getWallet } from '../services/wallet';
 import { getProvider, getTokenContract, transferTokens } from '../services/blockchain';
-import { saveTransaction, getUserDisplayName } from '../services/storage';
+import { saveTransaction, getUserDisplayName, generateTransactionId } from '../services/storage';
 import { authenticateWithBiometric, authenticateWithPIN } from '../utils/biometric';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS } from '../constants/theme';
 import { Button, LoadingSpinner } from '../components';
+import { AlertManager } from '../utils/alert';
 
 interface SendMoneyScreenProps {
   navigation: any;
@@ -89,7 +89,7 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       if (paymentInProgress.current) {
-        Alert.alert(
+        AlertManager.alert(
           'Transaction Cancelled',
           'Payment was interrupted. If the transaction was submitted, it may still complete.',
           [{ text: 'OK', onPress: () => navigation.goBack() }]
@@ -184,29 +184,29 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
 
   const validateInputs = (): boolean => {
     if (!recipientAddress.trim()) {
-      Alert.alert('Invalid Address', 'Please enter a recipient wallet address');
+      AlertManager.alert('Invalid Address', 'Please enter a recipient wallet address');
       return false;
     }
 
     if (!ethers.isAddress(recipientAddress.trim())) {
-      Alert.alert('Invalid Address', 'Please enter a valid Ethereum address');
+      AlertManager.alert('Invalid Address', 'Please enter a valid Ethereum address');
       return false;
     }
 
     if (recipientAddress.toLowerCase() === walletAddress.toLowerCase()) {
-      Alert.alert('Invalid Address', 'You cannot send money to yourself');
+      AlertManager.alert('Invalid Address', 'You cannot send money to yourself');
       return false;
     }
 
     const amountNum = parseFloat(amountPAY);
     if (!amountINR || isNaN(amountNum) || amountNum <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid amount');
+      AlertManager.alert('Invalid Amount', 'Please enter a valid amount');
       return false;
     }
 
     const balanceNum = parseFloat(balance);
     if (amountNum > balanceNum) {
-      Alert.alert('Insufficient Balance', `You only have ${balance} PAY (₹${(parseFloat(balance) * INR_TO_PAY_RATE).toFixed(2)} INR)`);
+      AlertManager.alert('Insufficient Balance', `You only have ${balance} PAY (₹${(parseFloat(balance) * INR_TO_PAY_RATE).toFixed(2)} INR)`);
       return false;
     }
 
@@ -216,7 +216,7 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
   const handleSendMoney = async () => {
     if (!validateInputs()) return;
 
-    Alert.alert(
+    AlertManager.alert(
       'Confirm Payment',
       `Send ₹${amountINR} INR (${amountPAY} PAY) to\n${recipientAddress.substring(0, 10)}...${recipientAddress.substring(recipientAddress.length - 8)}${note ? `\n\nNote: ${note}` : ''}`,
       [
@@ -225,13 +225,12 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
           text: 'Send',
           onPress: async () => {
             try {
-              setLoading(true);
               paymentInProgress.current = true;
 
               // Set timeout for slow network detection (5 seconds)
               networkTimeoutRef.current = setTimeout(() => {
                 if (paymentInProgress.current) {
-                  Alert.alert(
+                  AlertManager.alert(
                     'Slow Network Detected',
                     'Your network connection is slow. The payment is still processing...',
                     [{ text: 'OK' }]
@@ -243,9 +242,8 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
               const storedPin = await AsyncStorage.getItem('user_pin');
               if (!storedPin) {
                 paymentInProgress.current = false;
-                setLoading(false);
                 if (networkTimeoutRef.current) clearTimeout(networkTimeoutRef.current);
-                Alert.alert('Error', 'PIN not found. Please sign in again.');
+                AlertManager.alert('Error', 'PIN not found. Please sign in again.');
                 return;
               }
 
@@ -261,23 +259,34 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
 
               if (!authenticated) {
                 paymentInProgress.current = false;
-                setLoading(false);
                 if (networkTimeoutRef.current) clearTimeout(networkTimeoutRef.current);
-                Alert.alert('Authentication Failed', 'Transaction cancelled');
+                AlertManager.alert('Authentication Failed', 'Transaction cancelled');
                 return;
               }
 
               if (!wallet) {
                 paymentInProgress.current = false;
-                setLoading(false);
                 if (networkTimeoutRef.current) clearTimeout(networkTimeoutRef.current);
-                Alert.alert('Error', 'Failed to load wallet');
+                AlertManager.alert('Error', 'Failed to load wallet');
                 return;
               }
 
+              // Navigate to Processing screen immediately
+              const startTime = Date.now();
+              
+              // Generate transaction ID upfront
+              const transactionId = generateTransactionId();
+              
+              navigation.replace('PaymentProcessing', {
+                transactionId: transactionId,
+                amount: amountINR,
+                recipientName: recipientName || 'Unknown',
+                recipientAddress: recipientAddress.trim(),
+              });
+
               const connectedWallet = wallet.connect(getProvider());
 
-              // Transfer tokens (in PAY)
+              // Transfer tokens (in PAY) - Continue in background
               const txHash = await transferTokens(
                 connectedWallet,
                 recipientAddress.trim(),
@@ -288,11 +297,15 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
               if (networkTimeoutRef.current) clearTimeout(networkTimeoutRef.current);
               paymentInProgress.current = false;
 
+              // Calculate processing time
+              const processingTime = Math.round((Date.now() - startTime) / 1000);
+
               // Save transaction locally and sync to Supabase
               // Get sender's name from AsyncStorage
               const senderName = await AsyncStorage.getItem('user_name');
               
               const transactionData = {
+                transaction_id: transactionId,
                 tx_hash: txHash,
                 to_address: recipientAddress.trim(),
                 from_address: walletAddress,
@@ -313,28 +326,70 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
                 .then(() => console.log('✅ Transaction saved and synced'))
                 .catch(err => console.error('❌ Transaction save/sync error:', err));
 
-              setLoading(false);
-
-              Alert.alert(
-                '✅ Payment Sent!',
-                `Successfully sent ₹${amountINR} INR (${amountPAY} PAY)\n\nTransaction will confirm shortly.`,
-                [
-                  {
-                    text: 'OK',
-                    onPress: () => {
-                      navigation.goBack();
-                      // Refresh balance in background
-                      setTimeout(() => loadBalance(walletAddress), 2000);
-                    },
-                  },
-                ]
-              );
+              // Navigate to Success screen
+              navigation.replace('PaymentSuccess', {
+                transactionId: transactionId,
+                transactionHash: txHash,
+                fromAddress: walletAddress,
+                amount: amountINR,
+                recipientName: recipientName || 'Unknown',
+                recipientAddress: recipientAddress.trim(),
+                processingTime: processingTime || 2,
+                timestamp: new Date().toLocaleString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  hour12: true,
+                }),
+                note: note || undefined,
+                isMerchantPayment: !!merchantId,
+              });
             } catch (error: any) {
               paymentInProgress.current = false;
-              setLoading(false);
               if (networkTimeoutRef.current) clearTimeout(networkTimeoutRef.current);
               console.error('Send money error:', error);
-              Alert.alert('Transaction Failed', error.message || 'Failed to send payment');
+              
+              // Map error to user-friendly message
+              let failureReason = 'Payment failed. Please try again.';
+              let errorMessage = 'Transaction Failed';
+              
+              if (error.message?.includes('timeout') || error.message?.includes('slow')) {
+                failureReason = 'Transaction timed out after 1 minute. Your money is safe - no amount was deducted. The network is experiencing delays. Please try again.';
+                errorMessage = 'Network Timeout';
+              } else if (error.message?.includes('insufficient funds') || error.message?.includes('Insufficient')) {
+                failureReason = 'You don\'t have enough balance to complete this transaction.';
+                errorMessage = 'Insufficient Balance';
+              } else if (error.message?.includes('gas')) {
+                failureReason = 'Network fees are too high right now. Please try again later.';
+                errorMessage = 'High Network Fees';
+              } else if (error.message?.includes('network') || error.message?.includes('Failed to fetch')) {
+                failureReason = 'Unable to connect to blockchain network. Check your internet connection.';
+                errorMessage = 'Network Connection Failed';
+              } else if (error.message?.includes('temporarily unavailable')) {
+                failureReason = 'Payment service is temporarily unavailable. Your money is safe. Please try again in a few moments.';
+                errorMessage = 'Service Unavailable';
+              } else {
+                failureReason = error.message + ' Your money is safe - no amount was deducted.';
+              }
+              
+              // Navigate to Failure screen
+              navigation.replace('PaymentFailure', {
+                amount: amountINR,
+                recipientName: recipientName || 'Unknown',
+                recipientAddress: recipientAddress.trim(),
+                errorMessage,
+                errorReason: failureReason,
+                timestamp: new Date().toLocaleString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  hour12: true,
+                }),
+              });
             }
           },
         },
@@ -352,16 +407,16 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
         // Automatically fetch recipient name after pasting
         fetchRecipientName(address);
       } else {
-        Alert.alert('Invalid Address', 'Clipboard does not contain a valid address');
+        AlertManager.alert('Invalid Address', 'Clipboard does not contain a valid address');
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to paste from clipboard');
+      AlertManager.alert('Error', 'Failed to paste from clipboard');
     }
   };
 
   const handleBackPress = () => {
     if (paymentInProgress.current) {
-      Alert.alert(
+      AlertManager.alert(
         'Transaction Cancelled',
         'Payment was interrupted. If the transaction was submitted, it may still complete.',
         [{ text: 'OK', onPress: () => navigation.goBack() }]

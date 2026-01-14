@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   Linking,
   ScrollView,
   Share,
@@ -16,11 +15,13 @@ import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import QRCode from 'react-native-qrcode-svg';
+import { useFocusEffect } from '@react-navigation/native';
 import { isMerchant, getMerchantProfile } from '../services/merchant';
 import { supabase } from '../services/supabase';
 import { isBiometricAvailable, getBiometricType } from '../utils/biometric';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS, BLOCKCHAIN_CONFIG } from '../constants/theme';
 import { Card, Button } from '../components';
+import { AlertManager } from '../utils/alert';
 
 interface ProfileScreenProps {
   navigation: any;
@@ -44,6 +45,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     loadSettings();
     loadProfilePhoto();
   }, []);
+
+  // Refresh merchant status when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🔄 ProfileScreen focused - refreshing merchant status');
+      checkMerchantStatus();
+    }, [])
+  );
 
   const loadWalletAddress = async () => {
     const address = await AsyncStorage.getItem('wallet_address');
@@ -144,7 +153,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please allow access to your photos to change your profile picture.');
+        AlertManager.alert('Permission Required', 'Please allow access to your photos to change your profile picture.');
         return;
       }
 
@@ -159,24 +168,24 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         const photoUri = result.assets[0].uri;
         
         // Show uploading state
-        Alert.alert('Uploading', 'Uploading your profile photo...');
+        AlertManager.alert('Uploading', 'Uploading your profile photo...');
         
         // Upload to Supabase Storage
         const uploaded = await uploadProfilePhoto(photoUri);
         
         if (uploaded) {
           setProfilePhoto(uploaded);
-          Alert.alert('Success', 'Profile photo updated and synced to cloud!');
+          AlertManager.alert('Success', 'Profile photo updated and synced to cloud!');
         } else {
           // Fallback to local storage if upload fails
           setProfilePhoto(photoUri);
           await AsyncStorage.setItem('profile_photo', photoUri);
-          Alert.alert('Saved Locally', 'Photo saved on device. Cloud sync unavailable.');
+          AlertManager.alert('Saved Locally', 'Photo saved on device. Cloud sync unavailable.');
         }
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to update profile photo');
+      AlertManager.alert('Error', 'Failed to update profile photo');
     }
   };
 
@@ -305,7 +314,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   };
 
   const handleSignOut = () => {
-    Alert.alert(
+    AlertManager.alert(
       '👋 Sign Out',
       'Are you sure you want to sign out? You will need to verify your phone number again to access your wallet.',
       [
@@ -320,7 +329,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
             await AsyncStorage.removeItem('phone_verified');
             await AsyncStorage.removeItem('phone_number');
             
-            Alert.alert('Signed Out', 'You have been signed out successfully.', [
+            AlertManager.alert('Signed Out', 'You have been signed out successfully.', [
               {
                 text: 'OK',
                 onPress: () => navigation.replace('Splash'),
@@ -336,7 +345,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     if (value) {
       const available = await isBiometricAvailable();
       if (!available) {
-        Alert.alert('Not Available', `${biometricType} is not set up on this device. Please enable it in your device settings.`);
+        AlertManager.alert('Not Available', `${biometricType} is not set up on this device. Please enable it in your device settings.`);
         return;
       }
     }
@@ -553,7 +562,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
             </>
           )}
           
-          <TouchableOpacity style={styles.settingRow} onPress={() => Alert.alert('Coming Soon', 'Help & Support will be available soon.')}>
+          <TouchableOpacity style={styles.settingRow} onPress={() => AlertManager.alert('Coming Soon', 'Help & Support will be available soon.')}>
             <View style={styles.settingInfo}>
               <Text style={styles.settingIcon}>💬</Text>
               <View>
@@ -565,7 +574,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           
           <View style={styles.settingDivider} />
           
-          <TouchableOpacity style={styles.settingRow} onPress={() => Alert.alert('Privacy Policy', 'Coming soon')}>
+          <TouchableOpacity style={styles.settingRow} onPress={() => AlertManager.alert('Privacy Policy', 'Coming soon')}>
             <View style={styles.settingInfo}>
               <Text style={styles.settingIcon}>🔒</Text>
               <View>
