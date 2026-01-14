@@ -1,5 +1,9 @@
 import { supabase } from './supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import EventEmitter from 'eventemitter3';
+
+// Event emitter for real-time merchant status updates
+export const merchantEvents = new EventEmitter();
 
 export interface Merchant {
   id?: string;
@@ -75,6 +79,10 @@ export async function registerAsMerchant(merchant: Merchant): Promise<{
     // Cache merchant status locally
     await AsyncStorage.setItem('is_merchant', 'true');
     await AsyncStorage.setItem('merchant_id', data.id);
+
+    // Emit event for real-time UI updates
+    merchantEvents.emit('merchantRegistered', data);
+    console.log('📡 Emitted merchantRegistered event');
 
     return { success: true, merchantId: data.id };
   } catch (error: any) {

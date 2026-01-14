@@ -1,56 +1,58 @@
 /**
  * Currency conversion utilities
- * PAY token to INR conversion
+ * Stablecoin to INR conversion (1:1 ratio)
+ * 
+ * Behind the scenes, the app uses blockchain tokens (stablecoins)
+ * that maintain 1:1 value with INR. Users only see INR amounts.
  */
 
-// Current conversion rate
-// 1 PAY = 0.85 INR (100 PAY = 85 INR)
-// 1 INR = 1.176 PAY (10 INR = 11.76 PAY)
-const PAY_TO_INR_RATE = 0.85; // 1 PAY = 0.85 INR
-const INR_TO_PAY_RATE = 1.176; // 1 INR = 1.176 PAY
+// Stablecoin conversion rate: 1 token = 1 INR
+// This creates a seamless experience where users only think in INR
+const STABLECOIN_TO_INR_RATE = 1.0; // 1 token = ₹1
+const INR_TO_STABLECOIN_RATE = 1.0; // ₹1 = 1 token
 
 /**
- * Convert PAY tokens to INR
+ * Convert blockchain tokens to INR (1:1 ratio)
+ * Users see INR, blockchain uses tokens behind the scenes
  */
-export function convertPAYtoINR(payAmount: string | number): number {
-  const amount = typeof payAmount === 'string' ? parseFloat(payAmount) : payAmount;
-  return amount * PAY_TO_INR_RATE;
+export function convertTokenToINR(tokenAmount: string | number): number {
+  const amount = typeof tokenAmount === 'string' ? parseFloat(tokenAmount) : tokenAmount;
+  return amount * STABLECOIN_TO_INR_RATE;
 }
 
 /**
- * Convert INR to PAY tokens
+ * Convert INR to blockchain tokens (1:1 ratio)
+ * When user enters ₹100, system sends 100 tokens
  */
-export function convertINRtoPAY(inrAmount: string | number): number {
+export function convertINRtoToken(inrAmount: string | number): number {
   const amount = typeof inrAmount === 'string' ? parseFloat(inrAmount) : inrAmount;
-  return amount * INR_TO_PAY_RATE;
+  return amount * INR_TO_STABLECOIN_RATE;
 }
 
-/**
- * Format PAY amount with INR equivalent
- */
-export function formatPayWithINR(payAmount: string | number): string {
-  const amount = typeof payAmount === 'string' ? parseFloat(payAmount) : payAmount;
-  const inrAmount = convertPAYtoINR(amount);
-  return `${amount.toFixed(2)} PAY (₹${inrAmount.toFixed(2)})`;
-}
+// Legacy function names for backward compatibility
+export const convertPAYtoINR = convertTokenToINR;
+export const convertINRtoPAY = convertINRtoToken;
 
 /**
- * Format INR currency
+ * Format amount as INR only (never show token amounts to users)
  */
 export function formatINR(amount: number): string {
   return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 /**
- * Format PAY currency
+ * Legacy function - now just shows INR (tokens hidden from users)
+ * Kept for backward compatibility with merchant screens
  */
 export function formatPAY(amount: number): string {
-  return `${amount.toFixed(2)} PAY`;
+  return formatINR(amount);
 }
 
 /**
- * Get the conversion rate display string
+ * Legacy function - now just shows INR (tokens hidden from users)
  */
-export function getConversionRateDisplay(): string {
-  return `1 PAY = ₹${PAY_TO_INR_RATE}`;
+export function formatPayWithINR(tokenAmount: string | number): string {
+  const amount = typeof tokenAmount === 'string' ? parseFloat(tokenAmount) : tokenAmount;
+  const inrAmount = convertTokenToINR(amount);
+  return formatINR(inrAmount);
 }

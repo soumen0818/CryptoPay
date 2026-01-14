@@ -36,6 +36,8 @@ console.log('🔧 Blockchain Config:', {
 });
 
 // ERC-20 + Faucet + Meta-Transaction ABI
+// Note: Token maintains 1:1 value with INR (stablecoin approach)
+// Users see ₹, blockchain uses tokens behind the scenes
 const TOKEN_ABI = [
   'function balanceOf(address owner) view returns (uint256)',
   'function transfer(address to, uint256 amount) returns (bool)',
@@ -70,6 +72,52 @@ export async function getBalance(address: string): Promise<string> {
   } catch (error) {
     console.error('Error getting balance:', error);
     return '0';
+  }
+}
+
+/**
+ * Check if user can claim from faucet
+ */
+export async function canClaimFaucet(address: string): Promise<boolean> {
+  try {
+    const contract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, provider);
+    const canClaim = await contract.canClaimFaucet(address);
+    return canClaim;
+  } catch (error) {
+    console.error('Error checking faucet availability:', error);
+    return false;
+  }
+}
+
+/**
+ * Get time remaining until next faucet claim (in seconds)
+ */
+export async function getTimeUntilNextClaim(address: string): Promise<number> {
+  try {
+    const contract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, provider);
+    const timeRemaining = await contract.timeUntilNextClaim(address);
+    return Number(timeRemaining);
+  } catch (error) {
+    console.error('Error getting time until next claim:', error);
+    return 0;
+  }
+}
+
+/**
+ * Format seconds into human-readable time (e.g., "5h 30m" or "23h 45m")
+ */
+export function formatTimeRemaining(seconds: number): string {
+  if (seconds <= 0) return 'Available now';
+  
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  } else if (minutes > 0) {
+    return `${minutes}m`;
+  } else {
+    return 'Less than 1 minute';
   }
 }
 
@@ -278,7 +326,18 @@ export async function claimFromFaucet(
     // Check if can claim
     const canClaim = await contract.canClaimFaucet(wallet.address);
     if (!canClaim) {
-      throw new Error('Please wait 24 hours between faucet claims');
+      // Get exact time remaining for better error message
+      const timeRemaining = await contract.timeUntilNextClaim(wallet.address);
+      const timeFormatted = formatTimeRemaining(Number(timeRemaining));
+      throw new Error(`Please wait ${timeFormatted} before claiming again`);
+    }
+
+    // Double check - get the actual time remaining in seconds
+    const timeRemaining = await contract.timeUntilNextClaim(wallet.address);
+    if (Number(timeRemaining) > 0) {
+      const timeFormatted = formatTimeRemaining(Number(timeRemaining));
+      console.log(`⏱️ Time remaining: ${timeRemaining}s (${timeFormatted})`);
+      throw new Error(`Please wait ${timeFormatted} before claiming again`);
     }
 
     // Get current nonce
@@ -332,7 +391,10 @@ export async function claimFromFaucet(
     console.error('Faucet claim error:', error);
     
     // User-friendly error messages (NO MATIC references - it's gasless!)
-    if (error.message?.includes('24 hours')) {
+    if (error.message?.includes('wait') && error.message?.includes('before claiming')) {
+      // Already formatted message from our check above
+      throw error;
+    } else if (error.message?.includes('24 hours')) {
       throw new Error('Please wait 24 hours between claims');
     } else if (error.message?.includes('Invalid signature')) {
       throw new Error('Authentication failed. Please try again.');

@@ -1,5 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
+import EventEmitter from 'eventemitter3';
+
+// Event emitter for real-time updates
+export const storageEvents = new EventEmitter();
 
 export interface Transaction {
   id?: string;
@@ -176,6 +180,10 @@ export async function saveTransaction(tx: Transaction): Promise<void> {
     } catch (syncError) {
       console.log('Supabase sync skipped:', syncError);
     }
+    
+    // Emit event for real-time UI updates
+    storageEvents.emit('transactionSaved', txWithTime);
+    console.log('📡 Emitted transactionSaved event');
   } catch (error) {
     console.error('Error saving transaction:', error);
     throw error;
