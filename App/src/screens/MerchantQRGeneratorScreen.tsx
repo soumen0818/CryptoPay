@@ -59,13 +59,13 @@ export const MerchantQRGeneratorScreen: React.FC<MerchantQRGeneratorScreenProps>
 
   const handleGenerate = async () => {
     if (!businessName.trim()) {
-      Alert.alert('Error', 'Business name not found. Please try again.');
+      AlertManager.alert('Error', 'Business name not found. Please try again.');
       return;
     }
 
     const amountNum = amount ? parseFloat(amount) : undefined;
     if (amount && (isNaN(amountNum!) || amountNum! <= 0)) {
-      Alert.alert('Error', 'Please enter a valid amount');
+      AlertManager.alert('Error', 'Please enter a valid amount');
       return;
     }
 
@@ -79,7 +79,7 @@ export const MerchantQRGeneratorScreen: React.FC<MerchantQRGeneratorScreenProps>
       const walletAddress = await AsyncStorage.getItem('wallet_address');
 
       if (!merchantId || !walletAddress) {
-        Alert.alert('Error', 'Merchant information not found');
+        AlertManager.alert('Error', 'Merchant information not found');
         return;
       }
 
@@ -96,7 +96,7 @@ export const MerchantQRGeneratorScreen: React.FC<MerchantQRGeneratorScreenProps>
       setQRValue(qrData);
       setGeneratedQR(true);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to generate QR code');
+      AlertManager.alert('Error', error.message || 'Failed to generate QR code');
     } finally {
       setLoading(false);
     }
@@ -121,15 +121,15 @@ export const MerchantQRGeneratorScreen: React.FC<MerchantQRGeneratorScreenProps>
           // Write base64 data to file
           await file.write(dataURL, { encoding: 'base64' });
           
-          Alert.alert('Downloaded', `QR code saved to ${fileName}`);
+          AlertManager.alert('Downloaded', `QR code saved to ${fileName}`);
         } catch (error) {
           console.error('Error saving file:', error);
-          Alert.alert('Error', 'Failed to save QR code');
+          AlertManager.alert('Error', 'Failed to save QR code');
         }
       });
     } catch (error) {
       console.error('Error generating QR image:', error);
-      Alert.alert('Error', 'Failed to generate QR image');
+      AlertManager.alert('Error', 'Failed to generate QR image');
     }
   };
 
@@ -139,7 +139,7 @@ export const MerchantQRGeneratorScreen: React.FC<MerchantQRGeneratorScreenProps>
     try {
       const isAvailable = await Sharing.isAvailableAsync();
       if (!isAvailable) {
-        Alert.alert('Error', 'Sharing is not available on this device');
+        AlertManager.alert('Error', 'Sharing is not available on this device');
         return;
       }
 
@@ -159,12 +159,12 @@ export const MerchantQRGeneratorScreen: React.FC<MerchantQRGeneratorScreenProps>
           });
         } catch (error) {
           console.error('Error sharing file:', error);
-          Alert.alert('Error', 'Failed to share QR code');
+          AlertManager.alert('Error', 'Failed to share QR code');
         }
       });
     } catch (error) {
       console.error('Error generating QR image:', error);
-      Alert.alert('Error', 'Failed to generate QR image');
+      AlertManager.alert('Error', 'Failed to generate QR image');
     }
   };
 
