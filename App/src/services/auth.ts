@@ -251,3 +251,187 @@ export function getDevPhoneNumber(): string {
 export function getDevOTP(): string {
   return DEV_OTP;
 }
+
+/**
+ * Send OTP to email address (for merchant registration)
+ */
+export async function sendEmailOTP(email: string): Promise<{
+  success: boolean;
+  verificationId?: string;
+  error?: string;
+}> {
+  try {
+    // Development mode bypass
+    const isDevMode = process.env.EXPO_PUBLIC_DEV_MODE === 'true';
+    
+    if (isDevMode) {
+      console.log('🔧 Development mode - email OTP bypass enabled');
+      console.log('📧 Email OTP:', DEV_OTP);
+      return {
+        success: true,
+        verificationId: `dev-email-${email}`,
+      };
+    }
+
+    // Production: Send email OTP via Supabase
+    // Note: This requires setting up email templates in Supabase dashboard
+    const { data, error } = await supabase.auth.signInWithOtp({
+      email: email,
+      options: {
+        shouldCreateUser: false, // Don't create user, just verify email
+      }
+    });
+
+    if (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+
+    return {
+      success: true,
+      verificationId: email,
+    };
+  } catch (error: any) {
+    console.error('Send email OTP error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to send email OTP',
+    };
+  }
+}
+
+/**
+ * Verify email OTP (for merchant registration)
+ */
+export async function verifyEmailOTP(
+  verificationId: string,
+  otpCode: string
+): Promise<{
+  success: boolean;
+  email?: string;
+  error?: string;
+}> {
+  try {
+    // Development mode bypass
+    const isDevMode = process.env.EXPO_PUBLIC_DEV_MODE === 'true';
+    
+    if (isDevMode && verificationId.startsWith('dev-email-')) {
+      if (otpCode === DEV_OTP) {
+        const email = verificationId.replace('dev-email-', '');
+        console.log('🔧 Development email OTP verified successfully');
+        return {
+          success: true,
+          email: email,
+        };
+      } else {
+        return {
+          success: false,
+          error: `Invalid OTP. For testing, use: ${DEV_OTP}`,
+        };
+      }
+    }
+
+    // Production: Verify with Supabase
+    const { data, error } = await supabase.auth.verifyOtp({
+      email: verificationId,
+      token: otpCode,
+      type: 'email',
+    });
+
+    if (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+
+    return {
+      success: true,
+      email: data.user?.email || verificationId,
+    };
+  } catch (error: any) {
+    console.error('Verify email OTP error:', error);
+    return {
+      success: false,
+      error: error.message || 'Invalid email OTP code',
+    };
+  }
+}
+
+/**
+ * Send OTP to phone number (for merchant registration - simpler version)
+ */
+export async function sendPhoneOTP(phoneNumber: string): Promise<{
+  success: boolean;
+  verificationId?: string;
+  error?: string;
+}> {
+  try {
+    // Development mode bypass
+    const isDevMode = process.env.EXPO_PUBLIC_DEV_MODE === 'true';
+    
+    if (isDevMode) {
+      console.log('🔧 Development mode - phone OTP bypass enabled');
+      console.log('📱 Phone OTP:', DEV_OTP);
+      return {
+        success: true,
+        verificationId: `dev-phone-${phoneNumber}`,
+      };
+    }
+
+    // Production: Use existing sendOTP function
+    const result = await sendOTP(phoneNumber);
+    return result;
+  } catch (error: any) {
+    console.error('Send phone OTP error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to send phone OTP',
+    };
+  }
+}
+
+/**
+ * Verify phone OTP (for merchant registration - simpler version)
+ */
+export async function verifyPhoneOTP(
+  verificationId: string,
+  otpCode: string
+): Promise<{
+  success: boolean;
+  phoneNumber?: string;
+  error?: string;
+}> {
+  try {
+    // Development mode bypass
+    const isDevMode = process.env.EXPO_PUBLIC_DEV_MODE === 'true';
+    
+    if (isDevMode && verificationId.startsWith('dev-phone-')) {
+      if (otpCode === DEV_OTP) {
+        const phoneNumber = verificationId.replace('dev-phone-', '');
+        console.log('🔧 Development phone OTP verified successfully');
+        return {
+          success: true,
+          phoneNumber: phoneNumber,
+        };
+      } else {
+        return {
+          success: false,
+          error: `Invalid OTP. For testing, use: ${DEV_OTP}`,
+        };
+      }
+    }
+
+    // Production: Use existing verifyOTP function
+    const result = await verifyOTP(verificationId, otpCode);
+    return result;
+  } catch (error: any) {
+    console.error('Verify phone OTP error:', error);
+    return {
+      success: false,
+      error: error.message || 'Invalid phone OTP code',
+    };
+  }
+}
