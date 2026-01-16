@@ -58,6 +58,80 @@ export async function isMerchant(walletAddress: string): Promise<boolean> {
 }
 
 /**
+ * Upload merchant logo to Supabase Storage
+ */
+export async function uploadMerchantLogo(
+  logoUri: string,
+  businessName: string
+): Promise<string | null> {
+  try {
+    console.log('Starting merchant logo upload for:', logoUri);
+
+    // Read file as base64 for React Native compatibility
+    const base64 = await fetch(logoUri)
+      .then(res => res.blob())
+      .then(blob => {
+        return new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64data = reader.result as string;
+            // Remove data:image/xxx;base64, prefix
+            resolve(base64data.split(',')[1]);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      });
+
+    // Create unique filename
+    const fileExt = logoUri.split('.').pop()?.split('?')[0] || 'jpg';
+    const sanitizedName = businessName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const fileName = `${sanitizedName}_${Date.now()}.${fileExt}`;
+    const filePath = `merchant-logos/${fileName}`;
+
+    console.log('Uploading merchant logo to path:', filePath);
+
+    // Convert base64 to array buffer for upload
+    const binaryString = atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    // Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('merchant-logos')
+      .upload(filePath, bytes.buffer, {
+        contentType: `image/${fileExt}`,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error('Merchant logo upload error:', uploadError);
+      return null;
+    }
+
+    console.log('Merchant logo upload successful:', uploadData);
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('merchant-logos')
+      .getPublicUrl(filePath);
+
+    const publicUrl = urlData.publicUrl;
+    console.log('Merchant logo public URL:', publicUrl);
+
+    return publicUrl;
+  } catch (error) {
+    console.error('Error uploading merchant logo:', error);
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+    }
+    return null;
+  }
+}
+
+/**
  * Register as a merchant
  */
 export async function registerAsMerchant(merchant: Merchant): Promise<{
