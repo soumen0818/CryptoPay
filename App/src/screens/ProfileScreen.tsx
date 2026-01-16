@@ -9,6 +9,7 @@ import {
   Switch,
   Image,
   Share,
+  Linking,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
@@ -329,22 +330,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         // Capture QR code as image
         const uri = await qrCodeRef.current.capture();
         
-        // Try native Share API first (works better on iOS with message + image)
-        if (Platform.OS === 'ios') {
-          await Share.share({
-            url: uri,
-            message: 'Scan this QR code to send me money on CryptoPay!',
+        const message = 'Scan this QR code to send me money on CryptoPay!';
+        
+        // Use expo-sharing for reliable image sharing on both platforms
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(uri, {
+            mimeType: 'image/png',
+            dialogTitle: message,
+            UTI: 'public.png', // For iOS
           });
         } else {
-          // Android - use expo-sharing
-          if (await Sharing.isAvailableAsync()) {
-            await Sharing.shareAsync(uri, {
-              mimeType: 'image/png',
-              dialogTitle: 'Scan this QR code to send me money on CryptoPay!',
-            });
-          } else {
-            AlertManager.alert('Not Available', 'Sharing is not available on this device');
-          }
+          AlertManager.alert('Not Available', 'Sharing is not available on this device');
         }
       }
     } catch (error) {
@@ -355,8 +351,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 
   const handleDownloadQRCode = async () => {
     try {
-      // Request media library permissions
-      const { status } = await MediaLibrary.requestPermissionsAsync();
+      // Request media library permissions (write only, not read)
+      const { status } = await MediaLibrary.requestPermissionsAsync(false);
       
       if (status !== 'granted') {
         AlertManager.alert('Permission Required', 'Please allow access to save the QR code to your gallery.');
@@ -367,20 +363,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         // Capture QR code as image
         const uri = await qrCodeRef.current.capture();
         
-        // Save directly to media library (no need to copy to file system first)
+        // Save directly to media library
         const asset = await MediaLibrary.createAssetAsync(uri);
-        
-        // Try to create album or add to existing album
-        try {
-          await MediaLibrary.createAlbumAsync('CryptoPay', asset, false);
-        } catch (albumError) {
-          // Album might already exist, just add to it
-          const albums = await MediaLibrary.getAlbumsAsync();
-          const cryptoPayAlbum = albums.find(a => a.title === 'CryptoPay');
-          if (cryptoPayAlbum) {
-            await MediaLibrary.addAssetsToAlbumAsync([asset], cryptoPayAlbum, false);
-          }
-        }
         
         AlertManager.alert('Success', 'QR code saved to gallery!');
       }
