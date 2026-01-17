@@ -44,6 +44,16 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
     loadRemainingAttempts();
   }, []);
 
+  // Auto-focus OTP input when switching to OTP verification stage
+  useEffect(() => {
+    if (step === 'otp' && otpInputRef.current) {
+      // Small delay to ensure the input is rendered
+      setTimeout(() => {
+        otpInputRef.current?.focus();
+      }, 100);
+    }
+  }, [step]);
+
   useEffect(() => {
     if (step === 'otp' && timer > 0) {
       const interval = setInterval(() => {
@@ -88,7 +98,8 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
       if (result.remainingAttempts !== undefined) {
         setRemainingAttempts(result.remainingAttempts);
       }
-      AlertManager.alert('OTP Sent', 'Please check your SMS for the verification code');
+      // Don't show alert to avoid dismissing keyboard
+      // The UI transition to OTP input stage is sufficient feedback
     } else {
       if (result.resetTime) {
         const hours = Math.ceil((result.resetTime.getTime() - Date.now()) / (1000 * 60 * 60));
@@ -297,7 +308,11 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
         ) : (
           <View style={styles.inputSection}>
             {/* OTP Individual Boxes */}
-            <View style={styles.otpContainer}>
+            <TouchableOpacity 
+              style={styles.otpContainer}
+              onPress={() => otpInputRef.current?.focus()}
+              activeOpacity={0.7}
+            >
               {[0, 1, 2, 3, 4, 5].map((index) => (
                 <View
                   key={index}
@@ -315,7 +330,7 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
                   </Text>
                 </View>
               ))}
-            </View>
+            </TouchableOpacity>
             
             {/* Hidden TextInput for keyboard */}
             <TextInput

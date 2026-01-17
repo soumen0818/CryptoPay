@@ -40,17 +40,13 @@ export async function createWallet(pin: string): Promise<string> {
     try {
       await SecureStore.setItemAsync(
         BIOMETRIC_BACKUP_KEY,
-        mnemonic, // Store plain mnemonic, protected by device biometrics
-        {
-          requireAuthentication: true, // Requires Face ID/Fingerprint to access
-          authenticationPrompt: 'Secure your wallet with biometric authentication'
-        }
+        mnemonic // Store plain mnemonic, will be protected when user enables biometric in BiometricSetup
       );
       console.log('Biometric backup created');
     } catch (bioError) {
-      // If biometric backup fails (no biometric enrolled), continue anyway
+      // If biometric backup fails, continue anyway
       // User can still use wallet with PIN, just can't recover if PIN forgotten
-      console.warn('Biometric backup failed (biometric not available):', bioError);
+      console.warn('Biometric backup failed:', bioError);
     }
     
     // Phase 4: Hash PIN with salt
