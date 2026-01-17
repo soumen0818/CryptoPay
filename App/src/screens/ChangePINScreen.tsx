@@ -11,6 +11,7 @@ import {
 import { PINInput } from '../components/PINInput';
 import { verifyPin, changeWalletPin } from '../services/wallet';
 import { COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS } from '../constants/theme';
+import { AlertManager } from '../utils/alert';
 
 const FONT_SIZES = TYPOGRAPHY.sizes;
 

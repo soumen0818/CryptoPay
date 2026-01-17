@@ -8,15 +8,19 @@ import {
   Share,
   ActivityIndicator,
   Platform,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
+import ViewShot from 'react-native-view-shot';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as MediaLibrary from 'expo-media-library';
 import * as Clipboard from 'expo-clipboard';
 import { getMerchantProfile } from '../services/merchant';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
+import { AlertManager } from '../utils/alert';
 
 const FONT_SIZES = TYPOGRAPHY.sizes;
 
@@ -31,7 +35,9 @@ export const MerchantGlobalQRScreen: React.FC<MerchantGlobalQRScreenProps> = ({
   const [qrValue, setQRValue] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [walletAddress, setWalletAddress] = useState('');
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const qrRef = useRef<any>(null);
+  const viewShotRef = useRef<ViewShot>(null);
 
   useEffect(() => {
     loadMerchantQR();
@@ -49,6 +55,9 @@ export const MerchantGlobalQRScreen: React.FC<MerchantGlobalQRScreenProps> = ({
       if (profile) {
         setBusinessName(profile.business_name);
         setWalletAddress(address);
+        if (profile.logo_url && profile.logo_url !== 'default-merchant-logo') {
+          setLogoUrl(profile.logo_url);
+        }
 
         // Create QR code data in the correct format for scanning
         // Using type 'cryptopay' with amount '0' for variable amount payments
@@ -88,25 +97,20 @@ export const MerchantGlobalQRScreen: React.FC<MerchantGlobalQRScreenProps> = ({
 
   const handleDownloadQR = async () => {
     try {
-      if (qrRef.current) {
-        qrRef.current.toDataURL(async (data: string) => {
-          const filename = `${businessName.replace(/\s+/g, '_')}_QR.png`;
-          const file = new File(Paths.cache, filename);
-          
-          // Convert base64 to Uint8Array and write
-          const binaryString = atob(data);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          await file.write(bytes);
-          
-          if (await Sharing.isAvailableAsync()) {
-            await Sharing.shareAsync(file.uri);
-          } else {
-            AlertManager.alert('Success', 'QR Code saved successfully!');
-          }
-        });
+      if (viewShotRef.current && viewShotRef.current.capture) {
+        const uri = await viewShotRef.current.capture();
+        const filename = `${businessName.replace(/\s+/g, '_')}_QR.png`;
+        
+        // Request permission to save to media library
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        if (status !== 'granted') {
+          AlertManager.alert('Permission Required', 'Please grant permission to save images to your device');
+          return;
+        }
+
+        // Save to media library
+        await MediaLibrary.saveToLibraryAsync(uri);
+        AlertManager.alert('Success', 'QR Code saved to your gallery!');
       }
     } catch (error) {
       console.error('Error downloading QR:', error);
@@ -116,26 +120,15 @@ export const MerchantGlobalQRScreen: React.FC<MerchantGlobalQRScreenProps> = ({
 
   const handleShareQRImage = async () => {
     try {
-      if (qrRef.current) {
-        qrRef.current.toDataURL(async (data: string) => {
-          const filename = `${businessName.replace(/\s+/g, '_')}_QR.png`;
-          const file = new File(Paths.cache, filename);
-          
-          // Convert base64 to Uint8Array and write
-          const binaryString = atob(data);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          await file.write(bytes);
-          
-          if (await Sharing.isAvailableAsync()) {
-            await Sharing.shareAsync(file.uri, {
-              mimeType: 'image/png',
-              dialogTitle: `Share ${businessName} QR Code`,
-            });
-          }
-        });
+      if (viewShotRef.current && viewShotRef.current.capture) {
+        const uri = await viewShotRef.current.capture();
+        
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(uri, {
+            mimeType: 'image/png',
+            dialogTitle: `Share ${businessName} QR Code`,
+          });
+        }
       }
     } catch (error) {
       console.error('Error sharing QR image:', error);
@@ -169,26 +162,38 @@ export const MerchantGlobalQRScreen: React.FC<MerchantGlobalQRScreenProps> = ({
 
       {/* Content */}
       <View style={styles.content}>
-        <View style={styles.infoCard}>
-          <Text style={styles.businessIcon}>🏪</Text>
-          <Text style={styles.businessName}>{businessName}</Text>
-          <Text style={styles.subtitle}>
-            Show this QR code to receive payments
-          </Text>
-        </View>
+        <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1.0 }}>
+          <View style={styles.qrCard}>
+            <View style={styles.infoCard}>
+              {logoUrl ? (
+                <Image source={{ uri: logoUrl }} style={styles.businessLogo} />
+              ) : (
+                <Image source={require('../../assets/default-merchant-image-cryptopay.png')} style={styles.businessLogo} />
+              )}
+              <Text style={styles.businessName}>{businessName}</Text>
+              <Text style={styles.subtitle}>
+                Show this QR code to receive payments
+              </Text>
+            </View>
 
-        {/* QR Code */}
-        <View style={styles.qrContainer}>
-          <View style={styles.qrBox}>
-            {qrValue && (
-              <QRCode
-                value={qrValue}
-                size={220}
-                getRef={(ref) => (qrRef.current = ref)}
-              />
-            )}
+            {/* QR Code */}
+            <View style={styles.qrContainer}>
+              <View style={styles.qrBox}>
+                {qrValue && (
+                  <QRCode
+                    value={qrValue}
+                    size={220}
+                    logo={require('../../assets/cpay_logo.png')}
+                    logoSize={45}
+                    logoBackgroundColor="white"
+                    logoMargin={2}
+                    getRef={(ref) => (qrRef.current = ref)}
+                  />
+                )}
+              </View>
+            </View>
           </View>
-        </View>
+        </ViewShot>
 
         {/* Action Buttons */}
         <View style={styles.actionButtonsRow}>
@@ -263,9 +268,23 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: SPACING.lg,
   },
+  qrCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: SPACING.xl,
+    alignItems: 'center',
+  },
   infoCard: {
     alignItems: 'center',
     marginBottom: SPACING.md,
+  },
+  businessLogo: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: SPACING.sm,
+    borderWidth: 2,
+    borderColor: COLORS.border,
   },
   businessIcon: {
     fontSize: 36,

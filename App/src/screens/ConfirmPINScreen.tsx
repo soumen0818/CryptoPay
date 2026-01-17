@@ -14,6 +14,7 @@ import { PINInput } from '../components/PINInput';
 import { createWallet } from '../services/wallet';
 import { supabase } from '../services/supabase';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
+import { AlertManager } from '../utils/alert';
 
 const FONT_SIZES = TYPOGRAPHY.sizes;
 

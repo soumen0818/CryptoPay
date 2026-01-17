@@ -15,6 +15,7 @@ import { PINInput } from '../components/PINInput';
 import { hasWallet, verifyPin } from '../services/wallet';
 import { authenticateForUnlock, isBiometricAvailable, getBiometricType } from '../utils/biometric';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
+import { AlertManager } from '../utils/alert';
 
 const FONT_SIZES = TYPOGRAPHY.sizes;
 

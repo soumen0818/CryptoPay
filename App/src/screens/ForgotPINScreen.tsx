@@ -17,6 +17,7 @@ import {
 import { isBiometricAvailable, getBiometricType } from '../utils/biometric';
 import { PINInput } from '../components/PINInput';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
+import { AlertManager } from '../utils/alert';
 
 const FONT_SIZES = TYPOGRAPHY.sizes;
 

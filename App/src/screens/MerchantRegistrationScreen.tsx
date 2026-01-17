@@ -283,7 +283,8 @@ export const MerchantRegistrationScreen: React.FC<
       });
 
       if (result.success) {
-        // Navigate directly to Merchant Dashboard
+        // Replace registration screen with dashboard
+        // So back button from dashboard goes to Profile, not registration form
         navigation.replace('MerchantDashboard');
       } else {
         AlertManager.alert('Error', result.error || 'Failed to register as merchant');

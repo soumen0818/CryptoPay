@@ -166,7 +166,7 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
         amount: paymentData.amount,
         status: 'pending',
         internal_status: 'processing',
-        user_visible_status: 'pending',
+        user_visible_status: 'success',
         merchant_name: isMerchantPayment ? merchantOrRecipientName : undefined,
         recipient_name: merchantOrRecipientName,
         sender_name: senderName || undefined,
@@ -177,7 +177,7 @@ export const PaymentConfirmScreen: React.FC<PaymentConfirmScreenProps> = ({
       });
 
       // Step 3: Execute blockchain transaction with timeout
-      setTimeout(async () => {
+      (setTimeout as any)(async () => {
         try {
           // Get stored PIN and retrieve wallet
           const storedPin = await AsyncStorage.getItem('user_pin');

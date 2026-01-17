@@ -15,6 +15,7 @@ import { parsePaymentQR, validatePaymentQR } from '../utils/qrCode';
 import { getMerchantById, getMerchantByAddress } from '../services/merchant';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from '../constants/theme';
 import { Button } from '../components';
+import { AlertManager } from '../utils/alert';
 
 const { width } = Dimensions.get('window');
 const SCANNER_SIZE = width * 0.7;

@@ -179,7 +179,7 @@ export const Navigation = () => {
         />
         <Stack.Screen 
           name="PaymentProcessing" 
-          component={PaymentProcessingScreen}
+          component={PaymentProcessingScreen as any}
           options={{
             headerShown: false,
             gestureEnabled: false,
@@ -187,7 +187,7 @@ export const Navigation = () => {
         />
         <Stack.Screen 
           name="PaymentSuccess" 
-          component={PaymentSuccessScreen}
+          component={PaymentSuccessScreen as any}
           options={{
             headerShown: false,
             gestureEnabled: false,
