@@ -75,17 +75,11 @@ export const ConfirmPINScreen: React.FC<ConfirmPINScreenProps> = ({
         // Continue even if DB insert fails (offline mode)
       }
 
-      // Show success and navigate to biometric setup
-      AlertManager.alert(
-        'Wallet Created! 🎉',
-        `Your wallet address:\n${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`,
-        [
-          {
-            text: 'Continue',
-            onPress: () => navigation.replace('BiometricSetup'),
-          },
-        ]
-      );
+      // Navigate without showing alert - will show after BiometricSetup
+      navigation.replace('ProfileSetup', { 
+        walletAddress,
+        phoneNumber: phoneNumber || '',
+      });
     } catch (err) {
       console.error('Wallet creation error:', err);
       AlertManager.alert('Error', 'Failed to create wallet. Please try again.');
@@ -136,20 +130,12 @@ export const ConfirmPINScreen: React.FC<ConfirmPINScreenProps> = ({
           // Continue even if DB insert fails (offline mode)
         }
 
-        // Show success and navigate to profile setup
-        AlertManager.alert(
-          'Wallet Created! 🎉',
-          `Your wallet address:\n${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`,
-          [
-            {
-              text: 'Continue',
-              onPress: () => navigation.replace('ProfileSetup', { 
-                walletAddress,
-                phoneNumber: phoneNumber || '',
-              }),
-            },
-          ]
-        );
+        // Navigate to profile setup without showing alert
+        // Account creation success will be shown after BiometricSetup
+        navigation.replace('ProfileSetup', { 
+          walletAddress,
+          phoneNumber: phoneNumber || '',
+        });
       } catch (err) {
         console.error('Wallet creation error:', err);
         AlertManager.alert('Error', 'Failed to create wallet. Please try again.');

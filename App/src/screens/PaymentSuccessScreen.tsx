@@ -174,7 +174,7 @@ export const PaymentSuccessScreen: React.FC<PaymentSuccessScreenProps> = ({
             <View ref={receiptRef} collapsable={false} style={styles.receiptCard}>
               {/* Receipt Header with App Name */}
               <View style={styles.receiptHeader}>
-                <Text style={styles.receiptAppName}>💳 CryptoPay</Text>
+                <Text style={styles.receiptAppName}>💳 C-Pay</Text>
                 <Text style={styles.receiptStatus}>✓ Payment Successful</Text>
               </View>
 

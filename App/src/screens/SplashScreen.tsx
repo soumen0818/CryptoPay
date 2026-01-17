@@ -63,7 +63,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ navigation }) => {
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.title}>CryptoPay</Text>
+        <Text style={styles.title}>C-Pay</Text>
         <Text style={styles.subtitle}>Pay like UPI, powered by Web3</Text>
       </View>
       <View style={styles.loadingContainer}>

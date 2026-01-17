@@ -308,7 +308,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   const handleShareAddress = async () => {
     try {
       await Share.share({
-        message: `My CryptoPay wallet address:\n${walletAddress}`,
+        message: `My C-Pay wallet address:\n${walletAddress}`,
       });
     } catch (error) {
       console.error('Error sharing:', error);
@@ -330,7 +330,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         // Capture QR code as image
         const uri = await qrCodeRef.current.capture();
         
-        const message = 'Scan this QR code to send me money on CryptoPay!';
+        const message = 'Scan this QR code to send me money on C-Pay!';
         
         // Use expo-sharing for reliable image sharing on both platforms
         if (await Sharing.isAvailableAsync()) {
@@ -472,7 +472,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                       style={styles.shareCardLogo}
                       resizeMode="contain"
                     />
-                    <Text style={styles.shareCardTitle}>CryptoPay</Text>
+                    <Text style={styles.shareCardTitle}>C-Pay</Text>
                   </View>
                   
                   {/* Profile Section */}
@@ -494,7 +494,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                         type: 'cryptopay',
                         merchant: walletAddress,
                         amount: '0',
-                        name: displayName || 'CryptoPay User',
+                        name: displayName || 'C-Pay User',
                         note: '',
                       })}
                       size={220}
@@ -726,7 +726,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           
           <View style={styles.settingDivider} />
           
-          <TouchableOpacity style={styles.settingRow} onPress={() => AlertManager.alert('About CryptoPay', 'Version 1.0.0\n\nCryptoPay is a modern INR-first digital payment app built on blockchain technology.\n\nNetwork: Polygon Amoy Testnet\n\n© 2026 CryptoPay')}>
+          <TouchableOpacity style={styles.settingRow} onPress={() => AlertManager.alert('About C-Pay', 'Version 1.0.0\n\nC-Pay is a modern INR-first digital payment app built on blockchain technology.\n\nNetwork: Polygon Amoy Testnet\n\n© 2026 C-Pay')}>
             <View style={styles.settingInfo}>
               <Text style={styles.settingIcon}>ℹ️</Text>
               <View>
@@ -751,7 +751,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 
       {/* Footer */}
       <View style={styles.footer}>
-        <Text style={styles.footerText}>CryptoPay v1.0.0</Text>
+        <Text style={styles.footerText}>C-Pay v1.0.0</Text>
         <Text style={styles.footerSubtext}>Built with ❤️ for Web3</Text>
         <Text style={styles.footerSubtext}>Polygon Amoy Testnet</Text>
       </View>

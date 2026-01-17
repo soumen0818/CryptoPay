@@ -86,7 +86,7 @@ export const BiometricSetupScreen: React.FC<BiometricSetupScreenProps> = ({
         const proceed = await new Promise<boolean>((resolve) => {
           AlertManager.alert(
             'Permissions Needed',
-            'CryptoPay uses Camera for QR scanning and Location for network features. We will ask once now.',
+            'C-Pay uses Camera for QR scanning and Location for network features. We will ask once now.',
             [
               { text: 'Not Now', style: 'cancel', onPress: () => resolve(false) },
               { text: 'Continue', onPress: () => resolve(true) },
@@ -115,7 +115,18 @@ export const BiometricSetupScreen: React.FC<BiometricSetupScreenProps> = ({
   const navigateToMainTabs = async () => {
     // Request permissions after authentication is complete
     await requestAppPermissions();
-    navigation.replace('MainTabs');
+    
+    // Show account creation success message
+    AlertManager.alert(
+      'Account Created! 🎉',
+      'Your C-Pay account has been successfully created. You can now start making payments!',
+      [
+        {
+          text: 'Get Started',
+          onPress: () => navigation.replace('MainTabs'),
+        },
+      ]
+    );
   };
 
   const handleEnableBiometric = async () => {

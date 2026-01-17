@@ -90,7 +90,7 @@ const MainTabs = () => (
       options={{
         tabBarLabel: 'Home',
         tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>🏠</Text>,
-        headerTitle: 'CryptoPay',
+        headerTitle: 'C-Pay',
       }}
     />
     <Tab.Screen

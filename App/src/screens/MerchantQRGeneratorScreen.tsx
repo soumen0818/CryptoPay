@@ -307,7 +307,7 @@ export const MerchantQRGeneratorScreen: React.FC<MerchantQRGeneratorScreenProps>
                 1. Display this QR code at your store or online
               </Text>
               <Text style={styles.instructionsText}>
-                2. Customers scan with CryptoPay app
+                2. Customers scan with C-Pay app
               </Text>
               <Text style={styles.instructionsText}>
                 3. Payment goes directly to your wallet

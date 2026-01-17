@@ -38,7 +38,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }
             style={styles.logo}
             resizeMode="contain"
           />
-          <Text style={styles.title}>CryptoPay</Text>
+          <Text style={styles.title}>C-Pay</Text>
           <Text style={styles.subtitle}>Pay with crypto, simple as UPI</Text>
         </View>
 

@@ -88,7 +88,7 @@ export const MerchantGlobalQRScreen: React.FC<MerchantGlobalQRScreenProps> = ({
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Pay ${businessName}\nWallet: ${walletAddress}\n\nScan my QR code in CryptoPay app to send payment instantly!`,
+        message: `Pay ${businessName}\nWallet: ${walletAddress}\n\nScan my QR code in C-Pay app to send payment instantly!`,
       });
     } catch (error) {
       console.error('Error sharing:', error);

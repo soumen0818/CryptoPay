@@ -38,7 +38,7 @@ export const QRGeneratorScreen: React.FC<QRGeneratorScreenProps> = ({ navigation
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <Text style={styles.title}>QR Code Generator</Text>
-        <Text style={styles.subtitle}>For Testing CryptoPay Scan Feature</Text>
+        <Text style={styles.subtitle}>For Testing C-Pay Scan Feature</Text>
       </View>
 
       {/* Input Fields */}
