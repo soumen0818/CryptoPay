@@ -1,8 +1,8 @@
-# 📱 CryptoPay Mobile App
+# 📱 C-Pay Mobile App
 
-> React Native application for CryptoPay - Making payments as simple as UPI
+> React Native application for C-Pay - Making payments as simple as UPI
 
-**💡 Note:** CryptoPay is an **INR-first money app**. Users only see ₹ amounts - blockchain technology works silently behind the scenes using a 1:1 stablecoin approach. See [INR_FIRST_IMPLEMENTATION.md](docs/INR_FIRST_IMPLEMENTATION.md) for details.
+**💡 Note:** C-Pay is an **INR-first money app**. Users only see ₹ amounts - blockchain technology works silently behind the scenes using a 1:1 stablecoin approach. See [INR_FIRST_IMPLEMENTATION.md](docs/INR_FIRST_IMPLEMENTATION.md) for details.
 
 [![React Native](https://img.shields.io/badge/React%20Native-0.81-blue.svg)](https://reactnative.dev/)
 [![Expo](https://img.shields.io/badge/Expo-54-black.svg)](https://expo.dev/)
@@ -32,7 +32,7 @@
 
 ## 🎯 Overview
 
-CryptoPay Mobile App is a full-featured React Native application that provides a seamless, UPI-like experience for digital payments. Built with Expo, it offers both consumer and merchant functionality with biometric security and real-time transaction tracking.
+C-Pay Mobile App is a full-featured React Native application that provides a seamless, UPI-like experience for digital payments. Built with Expo, it offers both consumer and merchant functionality with biometric security and real-time transaction tracking.
 
 **Core Philosophy:** Users think in INR (₹), blockchain moves digital money silently. The app uses a 1:1 stablecoin approach where 1 token = ₹1, providing a familiar experience without crypto complexity.
 
@@ -147,7 +147,7 @@ Before you begin, ensure you have:
 ### 1. Navigate to App Directory
 
 ```bash
-cd CryptoPay/App
+cd C-Pay/App
 ```
 
 ### 2. Install Dependencies
@@ -220,7 +220,6 @@ This will start the Expo development server. You'll see a QR code in your termin
 ### Run on Physical Device (Recommended)
 
 1. Install **Expo Go** app from:
-
    - [iOS App Store](https://apps.apple.com/app/apple-store/id982107779)
    - [Google Play Store](https://play.google.com/store/apps/details?id=host.exp.exponent)
 
@@ -555,7 +554,7 @@ See [COMPLETE_TESTING_GUIDE.md](docs/COMPLETE_TESTING_GUIDE.md) for comprehensiv
 
 **Solution:**
 
-- Grant camera permissions (Settings → Apps → CryptoPay)
+- Grant camera permissions (Settings → Apps → C-Pay)
 - Ensure good lighting
 - Hold phone steady over QR code
 - Try manual address entry
@@ -605,7 +604,7 @@ For issues or questions:
 
 ## 📄 License
 
-This project is part of the CryptoPay ecosystem. See main repository for license details.
+This project is part of the C-Pay ecosystem. See main repository for license details.
 
 ---
 

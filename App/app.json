@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "CryptoPay",
-    "slug": "cryptopay",
+    "name": "C-Pay",
+    "slug": "cpay",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/cpay_logo.png",
@@ -16,11 +16,11 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.cryptopay.app",
+      "bundleIdentifier": "com.cpay.app",
       "buildNumber": "1",
       "infoPlist": {
-        "NSCameraUsageDescription": "CryptoPay needs camera access to scan QR codes for payments",
-        "NSLocationWhenInUseUsageDescription": "CryptoPay uses your location to secure transactions",
+        "NSCameraUsageDescription": "C-Pay needs camera access to scan QR codes for payments",
+        "NSLocationWhenInUseUsageDescription": "C-Pay uses your location to secure transactions",
         "NSFaceIDUsageDescription": "Use Face ID to quickly and securely access your wallet"
       }
     },
@@ -29,7 +29,7 @@
         "foregroundImage": "./assets/cpay_logo.png",
         "backgroundColor": "#6366f1"
       },
-      "package": "com.cryptopay.app",
+      "package": "com.cpay.app",
       "versionCode": 1,
       "permissions": [
         "android.permission.CAMERA",
@@ -51,13 +51,13 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "CryptoPay needs camera access to scan QR codes for payments"
+          "cameraPermission": "C-Pay needs camera access to scan QR codes for payments"
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "CryptoPay uses your location to secure transactions"
+          "locationWhenInUsePermission": "C-Pay uses your location to secure transactions"
         }
       ],
       [
@@ -69,8 +69,8 @@
       [
         "expo-media-library",
         {
-          "photosPermission": "Allow CryptoPay to save QR codes to your photos.",
-          "savePhotosPermission": "Allow CryptoPay to save QR codes to your photos.",
+          "photosPermission": "Allow C-Pay to save QR codes to your photos.",
+          "savePhotosPermission": "Allow C-Pay to save QR codes to your photos.",
           "isAccessMediaLocationEnabled": false
         }
       ],

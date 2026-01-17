@@ -1,6 +1,6 @@
-# ⛓ CryptoPay Blockchain
+# ⛓ C-Pay Blockchain
 
-> Smart contracts powering the CryptoPay payment ecosystem on Polygon Amoy Testnet
+> Smart contracts powering the C-Pay payment ecosystem on Polygon Amoy Testnet
 
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.20-blue.svg)](https://soliditylang.org/)
 [![Hardhat](https://img.shields.io/badge/Hardhat-2.28-yellow.svg)](https://hardhat.org/)
@@ -28,7 +28,7 @@
 
 ## 🎯 Overview
 
-The CryptoPay blockchain layer consists of Ethereum-compatible smart contracts deployed on Polygon Amoy testnet. The primary contract is **PayToken**, an ERC-20 token with enhanced features for testing and gasless transactions.
+The C-Pay blockchain layer consists of Ethereum-compatible smart contracts deployed on Polygon Amoy testnet. The primary contract is **PayToken**, an ERC-20 token with enhanced features for testing and gasless transactions.
 
 **Key Components:**
 
@@ -45,7 +45,7 @@ The CryptoPay blockchain layer consists of Ethereum-compatible smart contracts d
 
 **Location:** `contracts/PayToken.sol`
 
-A feature-rich ERC-20 token designed for the CryptoPay ecosystem.
+A feature-rich ERC-20 token designed for the C-Pay ecosystem.
 
 #### Inheritance
 
@@ -176,7 +176,7 @@ Update the trusted relayer address. Only contract owner can call.
 ### 1. Navigate to Blockchain Directory
 
 ```bash
-cd CryptoPay/Blockchain
+cd C-Pay/Blockchain
 ```
 
 ### 2. Install Dependencies
@@ -440,7 +440,7 @@ import PayTokenABI from "./artifacts/contracts/PayToken.sol/PayToken.json";
 
 // Setup provider
 const provider = new ethers.JsonRpcProvider(
-  "https://rpc-amoy.polygon.technology"
+  "https://rpc-amoy.polygon.technology",
 );
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
@@ -454,7 +454,7 @@ console.log(`Balance: ${ethers.formatUnits(balance, 18)} PAY`);
 // Transfer tokens
 const tx = await payToken.transfer(
   recipientAddress,
-  ethers.parseUnits("10", 18)
+  ethers.parseUnits("10", 18),
 );
 await tx.wait();
 console.log("Transfer complete!");

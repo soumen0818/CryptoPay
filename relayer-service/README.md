@@ -1,6 +1,6 @@
-# 🚀 CryptoPay Relayer Service
+# 🚀 C-Pay Relayer Service
 
-> Backend service enabling gasless blockchain transactions for CryptoPay users
+> Backend service enabling gasless blockchain transactions for C-Pay users
 
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 [![Express](https://img.shields.io/badge/Express-4.18-blue.svg)](https://expressjs.com/)
@@ -27,7 +27,7 @@
 
 ## 🎯 Overview
 
-The CryptoPay Relayer Service is a backend Node.js application that enables **gasless transactions** (meta-transactions) for CryptoPay users. Instead of users paying gas fees in MATIC, they sign payment messages off-chain. The relayer service then submits these signed messages as blockchain transactions, subsidizing the gas costs.
+The C-Pay Relayer Service is a backend Node.js application that enables **gasless transactions** (meta-transactions) for C-Pay users. Instead of users paying gas fees in MATIC, they sign payment messages off-chain. The relayer service then submits these signed messages as blockchain transactions, subsidizing the gas costs.
 
 **This implements Path B (Advanced) of the payment flow:**
 
@@ -143,7 +143,7 @@ The CryptoPay Relayer Service is a backend Node.js application that enables **ga
 ### 1. Navigate to Relayer Service Directory
 
 ```bash
-cd CryptoPay/relayer-service
+cd C-Pay/relayer-service
 ```
 
 ### 2. Install Dependencies
@@ -517,7 +517,7 @@ app.use(
   cors({
     origin: "https://your-frontend-domain.com",
     methods: ["GET", "POST"],
-  })
+  }),
 );
 ```
 
@@ -548,7 +548,7 @@ When relayer balance drops below `MIN_BALANCE_THRESHOLD`:
 **Email Content:**
 
 ```
-Subject: ⚠️ CryptoPay Relayer Low Balance Alert
+Subject: ⚠️ C-Pay Relayer Low Balance Alert
 
 Your relayer service is running low on MATIC!
 
@@ -595,29 +595,26 @@ Development mode logs all activity:
    ```bash
    git init
    git add .
-   git commit -m "CryptoPay Relayer Service"
-   git remote add origin https://github.com/yourusername/cryptopay-relayer
+   git commit -m "C-Pay Relayer Service"
+   git remote add origin https://github.com/yourusername/cpay-relayer
    git push -u origin main
    ```
 
 2. **Create Render Account**
-
    - Visit [https://render.com](https://render.com)
    - Sign up (free)
 
 3. **Deploy Service**
-
    - Click **New** → **Web Service**
    - Connect GitHub repository
    - **Settings:**
-     - Name: `cryptopay-relayer`
+     - Name: `cpay-relayer`
      - Environment: `Node`
      - Build Command: `npm install`
      - Start Command: `npm start`
      - Instance Type: `Free`
 
 4. **Add Environment Variables**
-
    - Go to **Environment** tab
    - Add all variables from `.env`:
      - `RPC_URL`
@@ -628,7 +625,6 @@ Development mode logs all activity:
      - All other variables
 
 5. **Deploy**
-
    - Click **Create Web Service**
    - Wait 2-3 minutes for deployment
    - Your URL: `https://cryptopay-relayer.onrender.com`
@@ -743,7 +739,6 @@ EXPO_PUBLIC_RELAYER_URL=https://your-relayer.onrender.com
    ```
 
 2. **Verify signature format:**
-
    - Must start with `0x`
    - Must be 132 characters long (0x + 130 hex chars)
 
@@ -786,7 +781,6 @@ EXPO_PUBLIC_RELAYER_URL=https://your-relayer.onrender.com
 **Solutions:**
 
 1. **Gmail requires App Password:**
-
    - Regular password won't work
    - Enable 2FA first
    - Generate App Password in Google Account
@@ -884,7 +878,7 @@ For relayer-specific issues:
 
 ## 📄 License
 
-This project is part of the CryptoPay ecosystem. See main repository for license details.
+This project is part of the C-Pay ecosystem. See main repository for license details.
 
 ---
 

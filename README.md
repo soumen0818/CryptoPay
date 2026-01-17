@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⚡ CryptoPay
+# ⚡ C-Pay
 
 ### UPI for Web3 - Making Blockchain Payments Simple
 
@@ -12,7 +12,7 @@
 [![License](https://img.shields.io/badge/License-MIT-success?style=for-the-badge)](LICENSE)
 
 **Making blockchain payments as simple as scanning a QR code**  
-*No crypto knowledge required*
+_No crypto knowledge required_
 
 [Download APK](#-download-apk) • [Quick Start](#-quick-start) • [Roadmap](#-roadmap)
 
@@ -50,14 +50,14 @@
 
 ## 🎯 Overview
 
-**CryptoPay** transforms blockchain payments into a UPI-like experience. Users don't need to understand wallets, gas fees, or private keys — just scan a QR code, authenticate with PIN or biometrics, and pay instantly.
+**C-Pay** transforms blockchain payments into a UPI-like experience. Users don't need to understand wallets, gas fees, or private keys — just scan a QR code, authenticate with PIN or biometrics, and pay instantly.
 
-###  Why CryptoPay?
+### Why C-Pay?
 
 <table>
 <tr>
 <th>Traditional Crypto Wallets</th>
-<th>CryptoPay</th>
+<th>C-Pay</th>
 </tr>
 <tr>
 <td>
@@ -95,9 +95,9 @@
 
 <div align="center">
 
-### Ready to try CryptoPay?
+### Ready to try C-Pay?
 
-[![Download APK](https://img.shields.io/badge/Download-CryptoPay%20APK-success?style=for-the-badge&logo=android)](https://expo.dev/accounts/soumen0818/projects/cryptopay/builds/cd12dd8d-2765-4911-9d45-a7a6f5566d8d)
+[![Download APK](https://img.shields.io/badge/Download-C--Pay%20APK-success?style=for-the-badge&logo=android)](https://expo.dev/accounts/soumen0818/projects/cryptopay/builds/cd12dd8d-2765-4911-9d45-a7a6f5566d8d)
 
 > **Note:** This is a testnet version running on Polygon Amoy. Use test tokens only.
 
@@ -113,12 +113,12 @@ Users shouldn't need to know they're using blockchain technology. Just like they
 
 ### The UPI Analogy
 
-Just as UPI revolutionized digital payments in India by abstracting banking complexity, CryptoPay abstracts blockchain complexity:
+Just as UPI revolutionized digital payments in India by abstracting banking complexity, C-Pay abstracts blockchain complexity:
 
 <table>
 <tr>
 <th>Banking Abstraction (UPI)</th>
-<th>Blockchain Abstraction (CryptoPay)</th>
+<th>Blockchain Abstraction (C-Pay)</th>
 </tr>
 <tr>
 <td>
@@ -215,7 +215,7 @@ Just as UPI revolutionized digital payments in India by abstracting banking comp
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                      CRYPTOPAY ECOSYSTEM                        │
+│                      C-PAY ECOSYSTEM                            │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────┐         ┌─────────────────┐         ┌──────────────────┐
@@ -254,34 +254,34 @@ graph TD
     A[User Opens App] --> B{First Time?}
     B -->|Yes| C[Onboarding - 3 Slides]
     B -->|No| Z[Home Screen]
-    
+
     C --> D[Phone Verification]
     D --> E[Send OTP via Supabase Auth]
     E --> F[Verify OTP - 3 attempts/24h]
     F -->|Success| G[Create User Record in DB]
-    
+
     G --> H[Create 6-Digit PIN]
     H --> I[Confirm PIN Re-enter]
-    
+
     I --> J[Generate HD Wallet]
     J --> K[ethers.Wallet.createRandom]
     K --> L[12-word Mnemonic BIP-39]
     L --> M[Derive HD Wallet BIP-44]
     M --> N[m/44'/60'/0'/0/0]
-    
+
     N --> O[Private Key]
     N --> P[Public Key]
     N --> Q[Wallet Address 0x...]
-    
+
     Q --> R[Encrypt & Store]
     R --> S[Mnemonic → AES Encrypt with PIN]
     R --> T[PIN → Hash → SecureStore]
     R --> U[Address → AsyncStorage]
-    
+
     U --> V[Biometric Setup Optional]
     V --> W[Profile Setup Name, Photo]
     W --> Z[Home Screen - Ready!]
-    
+
     style A fill:#e1f5ff
     style Z fill:#d4edda
     style J fill:#fff3cd
@@ -302,28 +302,28 @@ sequenceDiagram
     User->>App: Scan Merchant QR
     App->>App: Parse QR Data
     Note over App: {merchant, amount, reference}
-    
+
     App->>User: Show Payment Confirmation
     Note over User: Coffee Shop<br/>10 PAY (₹100)
-    
+
     User->>App: Enter PIN / Biometric
     App->>Wallet: Decrypt Mnemonic
     Wallet->>Wallet: Derive Wallet Instance
-    
+
     Wallet->>Contract: call transfer(merchant, amount)
     Contract->>Blockchain: Submit Transaction
     Blockchain-->>Contract: Transaction Hash
     Contract-->>App: 0xabc123...
-    
+
     App->>Supabase: Store Transaction (Pending)
     App->>User: Show "Pending..." status
-    
+
     App->>Blockchain: Poll for Confirmation
     Blockchain-->>App: Confirmed! ✅
-    
+
     App->>Supabase: Update Status (Confirmed)
     Supabase-->>App: Real-time Update
-    
+
     App->>User: Success Animation 🎉
     Note over User: Payment Sent!<br/>~2 seconds total
 ```
@@ -341,31 +341,31 @@ sequenceDiagram
 
     User->>App: Scan Merchant QR
     App->>User: Show Payment Confirmation
-    
+
     User->>App: Enter PIN / Biometric
     App->>Wallet: Decrypt Wallet
-    
+
     App->>Relayer: GET /nonce/:address
     Relayer-->>App: {nonce: 5}
-    
+
     Wallet->>Wallet: Sign Meta-Transaction EIP-712
     Note over Wallet: {from, to, amount, nonce}
     Wallet-->>App: Signature 0x...
-    
+
     App->>Relayer: POST /relay
     Note over App: {from, to, amount,<br/>nonce, signature}
-    
+
     Relayer->>Relayer: 1. Verify Signature
     Relayer->>Relayer: 2. Recover Signer
     Relayer->>Relayer: 3. Check Nonce
     Relayer->>Relayer: 4. Check Balance
-    
+
     Relayer->>Contract: executeMetaTx()
     Note over Relayer: Relayer pays gas!
     Contract->>Blockchain: Submit Transaction
     Blockchain-->>Contract: Transaction Hash
     Contract-->>Relayer: 0xdef456...
-    
+
     Relayer-->>App: {txHash: "0xdef..."}
     App->>User: Success! ✅
     Note over User: User paid $0 gas
@@ -453,7 +453,7 @@ CREATE INDEX idx_otp_phone ON otp_attempts(phone_number);
 ## 📁 Project Structure
 
 ```
-CryptoPay/
+C-Pay/
 │
 ├── 📱 App/                          React Native Mobile Application
 │   ├── src/
@@ -520,8 +520,8 @@ CryptoPay/
 #### 1. Clone Repository
 
 ```bash
-git clone https://github.com/yourusername/CryptoPay.git
-cd CryptoPay
+git clone https://github.com/yourusername/C-Pay.git
+cd C-Pay
 ```
 
 #### 2. Setup Mobile App
@@ -563,6 +563,7 @@ RELAYER_ADDRESS=0xYourRelayerAddress
 ```
 
 Get test MATIC:
+
 - 🚰 [Polygon Faucet](https://faucet.polygon.technology/)
 
 Deploy contract:
@@ -612,6 +613,7 @@ npm start
 Cross-platform mobile application for iOS and Android
 
 **Key Features**
+
 - User authentication (OTP, PIN, biometrics)
 - Wallet creation and management
 - QR code scanning and generation
@@ -623,6 +625,7 @@ Cross-platform mobile application for iOS and Android
 <td width="50%">
 
 **Technologies**
+
 - React Native 0.81
 - Expo ~54.0
 - TypeScript 5.9
@@ -651,6 +654,7 @@ On-chain logic for token transfers and meta-transactions
 ERC-20 Token with EIP-2771 support
 
 **Features**
+
 - Standard ERC-20 functionality
 - Faucet (100 PAY / 24h)
 - Meta-transaction support
@@ -661,6 +665,7 @@ ERC-20 Token with EIP-2771 support
 <td width="50%">
 
 **Technologies**
+
 - Solidity 0.8.20
 - Hardhat
 - OpenZeppelin Contracts
@@ -685,9 +690,10 @@ Chain ID: 80002
 <td width="50%">
 
 **Purpose**  
-Backend service for gasless transactions *(Optional - Path B)*
+Backend service for gasless transactions _(Optional - Path B)_
 
 **Key Features**
+
 - Accept signed meta-transactions
 - Verify signatures (EIP-712)
 - Submit transactions to blockchain
@@ -698,12 +704,14 @@ Backend service for gasless transactions *(Optional - Path B)*
 <td width="50%">
 
 **Technologies**
+
 - Node.js 18+
 - Express.js
 - Ethers.js v6
 - Helmet.js (Security)
 
 **Endpoints**
+
 - `POST /relay` - Submit meta-tx
 - `GET /nonce/:address` - Get nonce
 - `GET /health` - Service status
@@ -720,36 +728,36 @@ Backend service for gasless transactions *(Optional - Path B)*
 
 ### Frontend Stack
 
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| ![React Native](https://img.shields.io/badge/-React%20Native-61DAFB?style=flat-square&logo=react&logoColor=white) | 0.81 | Cross-platform mobile framework |
-| ![Expo](https://img.shields.io/badge/-Expo-000020?style=flat-square&logo=expo&logoColor=white) | ~54.0 | Build tooling and managed workflow |
-| ![TypeScript](https://img.shields.io/badge/-TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white) | ~5.9 | Type safety and DX |
-| ![Ethers.js](https://img.shields.io/badge/-Ethers.js-2535A0?style=flat-square&logo=ethereum&logoColor=white) | v6.16 | Blockchain interactions |
-| React Navigation | v7 | Stack and tab navigation |
-| Supabase Client | v2.89 | Database and real-time |
-| Expo SecureStore | Latest | Encrypted key storage |
-| Expo Local Auth | Latest | Biometric authentication |
-| Expo Camera | Latest | QR code scanning |
-| React Native SVG | Latest | QR code generation |
+| Technology                                                                                                        | Version | Purpose                            |
+| ----------------------------------------------------------------------------------------------------------------- | ------- | ---------------------------------- |
+| ![React Native](https://img.shields.io/badge/-React%20Native-61DAFB?style=flat-square&logo=react&logoColor=white) | 0.81    | Cross-platform mobile framework    |
+| ![Expo](https://img.shields.io/badge/-Expo-000020?style=flat-square&logo=expo&logoColor=white)                    | ~54.0   | Build tooling and managed workflow |
+| ![TypeScript](https://img.shields.io/badge/-TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)  | ~5.9    | Type safety and DX                 |
+| ![Ethers.js](https://img.shields.io/badge/-Ethers.js-2535A0?style=flat-square&logo=ethereum&logoColor=white)      | v6.16   | Blockchain interactions            |
+| React Navigation                                                                                                  | v7      | Stack and tab navigation           |
+| Supabase Client                                                                                                   | v2.89   | Database and real-time             |
+| Expo SecureStore                                                                                                  | Latest  | Encrypted key storage              |
+| Expo Local Auth                                                                                                   | Latest  | Biometric authentication           |
+| Expo Camera                                                                                                       | Latest  | QR code scanning                   |
+| React Native SVG                                                                                                  | Latest  | QR code generation                 |
 
 ### Backend Stack
 
-| Service | Purpose | Cost |
-|---------|---------|------|
+| Service                                                                                                    | Purpose                           | Cost          |
+| ---------------------------------------------------------------------------------------------------------- | --------------------------------- | ------------- |
 | ![Supabase](https://img.shields.io/badge/-Supabase-3ECF8E?style=flat-square&logo=supabase&logoColor=white) | PostgreSQL DB, Real-time, Storage | Free - $25/mo |
-| ![Node.js](https://img.shields.io/badge/-Node.js-339933?style=flat-square&logo=node.js&logoColor=white) | Relayer Service API | $0 - $10/mo |
-| ![Express](https://img.shields.io/badge/-Express-000000?style=flat-square&logo=express&logoColor=white) | REST API Framework | Free |
+| ![Node.js](https://img.shields.io/badge/-Node.js-339933?style=flat-square&logo=node.js&logoColor=white)    | Relayer Service API               | $0 - $10/mo   |
+| ![Express](https://img.shields.io/badge/-Express-000000?style=flat-square&logo=express&logoColor=white)    | REST API Framework                | Free          |
 
 ### Blockchain Stack
 
-| Technology | Purpose |
-|------------|---------|
-| ![Solidity](https://img.shields.io/badge/-Solidity-363636?style=flat-square&logo=solidity&logoColor=white) | Smart contract language (0.8.20) |
-| ![Hardhat](https://img.shields.io/badge/-Hardhat-FFF100?style=flat-square&logo=hardhat&logoColor=black) | Development environment & testing |
-| ![OpenZeppelin](https://img.shields.io/badge/-OpenZeppelin-4E5EE4?style=flat-square&logo=openzeppelin&logoColor=white) | Secure contract libraries |
-| ![Polygon](https://img.shields.io/badge/-Polygon-8247E5?style=flat-square&logo=polygon&logoColor=white) | Layer 2 testnet (Amoy) |
-| ![Ethers.js](https://img.shields.io/badge/-Ethers.js-2535A0?style=flat-square&logo=ethereum&logoColor=white) | Blockchain library (v6) |
+| Technology                                                                                                             | Purpose                           |
+| ---------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| ![Solidity](https://img.shields.io/badge/-Solidity-363636?style=flat-square&logo=solidity&logoColor=white)             | Smart contract language (0.8.20)  |
+| ![Hardhat](https://img.shields.io/badge/-Hardhat-FFF100?style=flat-square&logo=hardhat&logoColor=black)                | Development environment & testing |
+| ![OpenZeppelin](https://img.shields.io/badge/-OpenZeppelin-4E5EE4?style=flat-square&logo=openzeppelin&logoColor=white) | Secure contract libraries         |
+| ![Polygon](https://img.shields.io/badge/-Polygon-8247E5?style=flat-square&logo=polygon&logoColor=white)                | Layer 2 testnet (Amoy)            |
+| ![Ethers.js](https://img.shields.io/badge/-Ethers.js-2535A0?style=flat-square&logo=ethereum&logoColor=white)           | Blockchain library (v6)           |
 
 ---
 
@@ -931,10 +939,10 @@ Backend service for gasless transactions *(Optional - Path B)*
 
 ### 💸 Cost Per Transaction
 
-| Scenario | User Cost | Platform Cost | Who Pays Gas? |
-|----------|-----------|---------------|---------------|
-| **Standard (Path A)** | ~$0.001 MATIC | $0 | User (negligible) |
-| **Gasless (Path B)** | $0 | ~$0.01 | Platform |
+| Scenario              | User Cost     | Platform Cost | Who Pays Gas?     |
+| --------------------- | ------------- | ------------- | ----------------- |
+| **Standard (Path A)** | ~$0.001 MATIC | $0            | User (negligible) |
+| **Gasless (Path B)**  | $0            | ~$0.01        | Platform          |
 
 ---
 
@@ -947,11 +955,13 @@ Backend service for gasless transactions *(Optional - Path B)*
 <td width="50%">
 
 **Key Generation**
+
 - ✅ HD Wallet (BIP-39/44 compliant)
 - ✅ Industry-standard cryptography
 - ✅ Secure random number generation
 
 **Storage**
+
 - ✅ AES-256 encryption
 - ✅ OS-level SecureStore
   - iOS: Keychain
@@ -962,6 +972,7 @@ Backend service for gasless transactions *(Optional - Path B)*
 <td width="50%">
 
 **Access Control**
+
 - ✅ 6-digit PIN required
 - ✅ Biometric authentication
   - Face ID (iOS)
@@ -970,6 +981,7 @@ Backend service for gasless transactions *(Optional - Path B)*
 - ✅ Device credential fallback
 
 **Privacy**
+
 - ✅ Private keys never leave device
 - ✅ Never shown to user
 - ✅ Never transmitted over network
@@ -1016,6 +1028,7 @@ Backend service for gasless transactions *(Optional - Path B)*
 <br>
 
 **Authentication & Wallet**
+
 - [x] Phone OTP authentication with rate limiting
 - [x] 6-digit PIN creation and management
 - [x] Biometric authentication (Face ID / Touch ID)
@@ -1025,6 +1038,7 @@ Backend service for gasless transactions *(Optional - Path B)*
 - [x] PIN recovery flow
 
 **Payments**
+
 - [x] QR code scanning for payments
 - [x] Transaction history with real-time updates
 - [x] Balance display (PAY tokens + INR equivalent)
@@ -1032,6 +1046,7 @@ Backend service for gasless transactions *(Optional - Path B)*
 - [x] Testnet faucet integration (100 PAY / 24h)
 
 **Merchant Features**
+
 - [x] Merchant registration
 - [x] Merchant dashboard with analytics
 - [x] Global QR code generation
@@ -1039,6 +1054,7 @@ Backend service for gasless transactions *(Optional - Path B)*
 - [x] Transaction tracking
 
 **Backend & Infrastructure**
+
 - [x] Supabase integration (DB + Real-time + Storage)
 - [x] Smart contract deployment (Polygon Amoy)
 - [x] Gasless transaction support (Relayer service)
@@ -1058,6 +1074,7 @@ Backend service for gasless transactions *(Optional - Path B)*
 <br>
 
 **Blockchain**
+
 - [ ] Deploy PayToken on Polygon mainnet
 - [ ] Smart contract audit (CertiK / OpenZeppelin)
 - [ ] Upgrade to UUPS upgradeable pattern
@@ -1065,6 +1082,7 @@ Backend service for gasless transactions *(Optional - Path B)*
 - [ ] Cross-chain bridge integration
 
 **Backend Infrastructure**
+
 - [ ] Real OTP service (Twilio / AWS SNS)
 - [ ] Push notifications (Firebase Cloud Messaging)
 - [ ] Advanced rate limiting per user
@@ -1073,9 +1091,10 @@ Backend service for gasless transactions *(Optional - Path B)*
 - [ ] Automated backup system
 
 **Mobile App**
+
 - [ ] App Store submission (iOS)
 - [ ] Google Play Store submission (Android)
-- [ ] Deep linking support (`cryptopay://`)
+- [ ] Deep linking support (`cpay://`)
 - [ ] Share payment links
 - [ ] Payment request feature
 - [ ] Recurring payments
@@ -1083,6 +1102,7 @@ Backend service for gasless transactions *(Optional - Path B)*
 - [ ] Dark mode
 
 **Security Enhancements**
+
 - [ ] Social recovery (3-of-5 guardians)
 - [ ] Transaction spending limits
 - [ ] Fraud detection system
@@ -1101,11 +1121,13 @@ Backend service for gasless transactions *(Optional - Path B)*
 <br>
 
 **Fiat Integration**
+
 - [ ] Fiat on-ramp (Transak / Wyre / MoonPay)
 - [ ] Fiat off-ramp to bank accounts
 - [ ] Multiple currency support (USD, EUR, GBP)
 
 **Advanced Features**
+
 - [ ] Cross-chain payments (Polygon → Ethereum → Optimism)
 - [ ] Payment splitting (split bill feature)
 - [ ] Scheduled / recurring payments
@@ -1115,18 +1137,21 @@ Backend service for gasless transactions *(Optional - Path B)*
 - [ ] NFC payments support
 
 **Analytics & Insights**
+
 - [ ] Enhanced merchant analytics dashboard
 - [ ] Spending insights for users
 - [ ] Tax reporting tools
 - [ ] Export transaction history (CSV / PDF)
 
 **Platform Expansion**
+
 - [ ] Web version (React.js)
 - [ ] White-label solution for businesses
 - [ ] SDK for third-party integrations
 - [ ] Plugin for e-commerce platforms (WooCommerce, Shopify)
 
 **Community & Growth**
+
 - [ ] Merchant onboarding program
 - [ ] Educational content (How-to guides, videos)
 - [ ] Community forum
@@ -1164,6 +1189,7 @@ git push origin feature/amazing-feature
 <td width="50%">
 
 **TypeScript**
+
 - Use strict mode
 - Define types for all variables
 - Avoid `any` type
@@ -1171,6 +1197,7 @@ git push origin feature/amazing-feature
 - Document complex functions
 
 **React / React Native**
+
 - Functional components only
 - Use hooks (useState, useEffect, etc.)
 - Follow component naming conventions
@@ -1180,6 +1207,7 @@ git push origin feature/amazing-feature
 <td width="50%">
 
 **Solidity**
+
 - Follow OpenZeppelin standards
 - Use latest Solidity version
 - Comment all functions
@@ -1187,6 +1215,7 @@ git push origin feature/amazing-feature
 - Write comprehensive tests
 
 **General**
+
 - camelCase for variables
 - PascalCase for components
 - UPPER_CASE for constants
@@ -1214,7 +1243,6 @@ npm run build
 ```
 
 ---
-
 
 ## 🙏 Acknowledgments
 
@@ -1261,13 +1289,11 @@ Special thanks to the amazing open-source community:
 </tr>
 </table>
 
-
-
 ---
 
-### **Status: READY FOR TESTNET USERS** 
+### **Status: READY FOR TESTNET USERS**
 
-*Last Updated: January 11, 2026*
+_Last Updated: January 11, 2026_
 
 ---
 
