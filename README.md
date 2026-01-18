@@ -97,7 +97,7 @@ _No crypto knowledge required_
 
 ### Ready to try C-Pay?
 
-[![Download APK](https://img.shields.io/badge/Download-C--Pay%20APK-success?style=for-the-badge&logo=android)](https://expo.dev/accounts/soumen0818/projects/cryptopay/builds/cd12dd8d-2765-4911-9d45-a7a6f5566d8d)
+[![Download APK](https://img.shields.io/badge/Download-C--Pay%20APK-success?style=for-the-badge&logo=android)](https://expo.dev/accounts/soumen0818/projects/cryptopay/builds/b522023b-5e31-4fc1-acd9-a82346c17977)
 
 > **Note:** This is a testnet version running on Polygon Amoy. Use test tokens only.
 
