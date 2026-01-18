@@ -52,7 +52,7 @@ export const CreatePINScreen: React.FC<CreatePINScreenProps> = ({ navigation, ro
       <View style={styles.content}>
         <View style={styles.header}>
           <Image
-            source={require('../../assets/cpay_logo.jpg')}
+            source={require('../../assets/cpay_logo.png')}
             style={styles.logo}
             resizeMode="contain"
           />
