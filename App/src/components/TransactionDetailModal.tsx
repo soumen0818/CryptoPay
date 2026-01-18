@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
 import { convertPAYtoINR } from '../utils/currency';
 import { formatDateLong } from '../utils/date';
+import { getCPayIdByWallet } from '../utils/cpayId';
 
 const FONT_SIZES = TYPOGRAPHY.sizes;
 
@@ -44,6 +45,27 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
   currentWallet,
   isMerchantView = false,
 }) => {
+  const [fromCPayId, setFromCPayId] = useState<string>('');
+  const [toCPayId, setToCPayId] = useState<string>('');
+
+  // Load C-Pay IDs when transaction changes
+  useEffect(() => {
+    const loadCPayIds = async () => {
+      if (transaction?.from_address) {
+        const fromId = await getCPayIdByWallet(transaction.from_address);
+        setFromCPayId(fromId || '');
+      }
+      if (transaction?.to_address) {
+        const toId = await getCPayIdByWallet(transaction.to_address);
+        setToCPayId(toId || '');
+      }
+    };
+    
+    if (transaction) {
+      loadCPayIds();
+    }
+  }, [transaction]);
+
   if (!transaction) return null;
 
   const isReceived = transaction.to_address?.toLowerCase() === currentWallet?.toLowerCase();
@@ -165,32 +187,32 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
                 <Text style={styles.detailValue}>{formatDate(transaction.created_at)}</Text>
               </View>
 
-              {/* From Address */}
+              {/* From Address/C-Pay ID */}
               {transaction.from_address && (
                 <TouchableOpacity
                   style={styles.detailRow}
-                  onPress={() => copyToClipboard(transaction.from_address!, 'From address')}
+                  onPress={() => copyToClipboard(fromCPayId || transaction.from_address!, 'From ID')}
                 >
                   <Text style={styles.detailLabel}>From</Text>
                   <View style={styles.detailValueRow}>
                     <Text style={styles.addressText} numberOfLines={1}>
-                      {transaction.from_address.slice(0, 10)}...{transaction.from_address.slice(-8)}
+                      {fromCPayId || `${transaction.from_address.slice(0, 10)}...${transaction.from_address.slice(-8)}`}
                     </Text>
                     <Ionicons name="copy-outline" size={16} color={COLORS.primary} />
                   </View>
                 </TouchableOpacity>
               )}
 
-              {/* To Address */}
+              {/* To Address/C-Pay ID */}
               {transaction.to_address && (
                 <TouchableOpacity
                   style={styles.detailRow}
-                  onPress={() => copyToClipboard(transaction.to_address!, 'To address')}
+                  onPress={() => copyToClipboard(toCPayId || transaction.to_address!, 'To ID')}
                 >
                   <Text style={styles.detailLabel}>To</Text>
                   <View style={styles.detailValueRow}>
                     <Text style={styles.addressText} numberOfLines={1}>
-                      {transaction.to_address.slice(0, 10)}...{transaction.to_address.slice(-8)}
+                      {toCPayId || `${transaction.to_address.slice(0, 10)}...${transaction.to_address.slice(-8)}`}
                     </Text>
                     <Ionicons name="copy-outline" size={16} color={COLORS.primary} />
                   </View>
