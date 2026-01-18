@@ -154,7 +154,7 @@ export const ConfirmPINScreen: React.FC<ConfirmPINScreenProps> = ({
       <View style={styles.content}>
         <View style={styles.header}>
           <Image
-            source={require('../../assets/cpay_logo.jpg')}
+            source={require('../../assets/cpay_logo.png')}
             style={styles.logo}
             resizeMode="contain"
           />
