@@ -53,12 +53,14 @@ C-Pay Mobile App is a full-featured React Native application that provides a sea
 ### User Features
 
 - ✅ **Phone Authentication** - OTP-based login with rate limiting (3 attempts/24h)
+- ✅ **C-Pay ID System** - User-friendly IDs (e.g., 9876543210@cpay1a2b) instead of wallet addresses
 - ✅ **Wallet Creation** - Automatic HD wallet generation (never exposed to user)
 - ✅ **PIN Security** - 6-digit PIN with encrypted mnemonic storage
 - ✅ **Biometric Auth** - Face ID / Fingerprint unlock
 - ✅ **QR Payments** - Scan merchant QR codes to pay instantly
+- ✅ **Send Money** - Send to wallet address or C-Pay ID
 - ✅ **Balance Display** - View PAY token balance with INR equivalent
-- ✅ **Transaction History** - Complete payment history with search/filter
+- ✅ **Transaction History** - Complete payment history with search/filter (shows C-Pay IDs)
 - ✅ **Profile Management** - Update name, photo, and settings
 - ✅ **Change PIN** - Secure 3-step PIN update flow
 - ✅ **Sign Out** - Session management without losing wallet
@@ -181,7 +183,14 @@ npm install
 3. Copy the entire content and paste into SQL Editor
 4. Click **Run** to create tables
 
-### 3. Create Environment File
+### 3. Run C-Pay ID Migration
+
+1. In Supabase dashboard, go to **SQL Editor**
+2. Open the file `Database-schema/ADD_CPAY_ID_MIGRATION.sql`
+3. Copy the entire content and paste into SQL Editor
+4. Click **Run** to add C-Pay ID columns and generate IDs for existing users
+
+### 4. Create Environment File
 
 ```bash
 cp .env.example .env
@@ -293,6 +302,7 @@ App/
 │   │
 │   ├── utils/                # Helper functions
 │   │   ├── biometric.ts      # Biometric auth helpers
+│   │   ├── cpayId.ts         # C-Pay ID generation & lookup
 │   │   ├── qr.ts             # QR code utilities
 │   │   ├── format.ts         # Number/date formatting
 │   │   └── validation.ts     # Input validation
@@ -429,6 +439,17 @@ updateMerchantProfile(id, data)    // Update business details
 relayTransaction(from, to, amount, signature); // Submit via relayer
 signMetaTransaction(wallet, to, amount); // Create EIP-712 signature
 checkRelayerHealth(); // Verify relayer is online
+```
+
+### `cpayId.ts` - C-Pay ID System
+
+```typescript
+generateCPayId(phone, wallet); // Generate C-Pay ID
+getCurrentUserCPayId(); // Get current user's C-Pay ID
+getCurrentMerchantCPayId(); // Get current merchant's C-Pay ID
+getCPayIdByWallet(address); // Get C-Pay ID from wallet
+getWalletAddressFromCPayId(cpayId); // Reverse lookup wallet
+isValidCPayId(id); // Validate C-Pay ID format
 ```
 
 ---
