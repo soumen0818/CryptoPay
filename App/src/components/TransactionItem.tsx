@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS, TYPOGRAPHY } from '../constants/theme';
 import { formatDateShort } from '../utils/date';
 import { convertPAYtoINR } from '../utils/currency';
+import { getCPayIdByWallet } from '../utils/cpayId';
 
 interface Transaction {
   id?: string;
@@ -84,6 +85,7 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
   onPress,
   currentWallet,
 }) => {
+  const [displayName, setDisplayName] = useState<string>('Loading...');
   const isReceived = transaction.to_address?.toLowerCase() === currentWallet?.toLowerCase();
   
   // Phase 2: Use user_visible_status if available, fallback to status
@@ -92,18 +94,38 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
   
   const formatDate = (dateString: string) => formatDateShort(dateString);
 
-  // Get display name based on transaction direction
-  const getDisplayName = () => {
-    if (isReceived) {
-      // For received: show sender name
-      return transaction.sender_name || 
-        (transaction.from_address ? `${transaction.from_address.slice(0, 6)}...${transaction.from_address.slice(-4)}` : 'Unknown');
-    } else {
-      // For sent: show recipient name
-      return transaction.recipient_name || transaction.merchant_name || 
-        (transaction.to_address ? `${transaction.to_address.slice(0, 6)}...${transaction.to_address.slice(-4)}` : 'Unknown');
-    }
-  };
+  // Load display name (with C-Pay ID support)
+  useEffect(() => {
+    const loadDisplayName = async () => {
+      if (isReceived) {
+        // For received: show sender name or C-Pay ID
+        if (transaction.sender_name) {
+          setDisplayName(transaction.sender_name);
+          return;
+        }
+        if (transaction.from_address) {
+          const cpayId = await getCPayIdByWallet(transaction.from_address);
+          setDisplayName(cpayId || `${transaction.from_address.slice(0, 6)}...${transaction.from_address.slice(-4)}`);
+          return;
+        }
+        setDisplayName('Unknown');
+      } else {
+        // For sent: show recipient name or C-Pay ID
+        if (transaction.recipient_name || transaction.merchant_name) {
+          setDisplayName(transaction.recipient_name || transaction.merchant_name || 'Unknown');
+          return;
+        }
+        if (transaction.to_address) {
+          const cpayId = await getCPayIdByWallet(transaction.to_address);
+          setDisplayName(cpayId || `${transaction.to_address.slice(0, 6)}...${transaction.to_address.slice(-4)}`);
+          return;
+        }
+        setDisplayName('Unknown');
+      }
+    };
+    
+    loadDisplayName();
+  }, [transaction, isReceived]);
 
   const amount = parseFloat(transaction.amount);
   const inrAmount = convertPAYtoINR(amount); // Now 1:1 conversion
@@ -120,7 +142,7 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
             {transaction.transaction_id || 'TXN-...'}
           </Text>
           <Text style={styles.transactionName} numberOfLines={1}>
-            {isReceived ? 'From: ' : 'To: '}{getDisplayName()}
+            {isReceived ? 'From: ' : 'To: '}{displayName}
           </Text>
           <Text style={styles.transactionDate}>
             {formatDate(transaction.created_at || new Date().toISOString())}
