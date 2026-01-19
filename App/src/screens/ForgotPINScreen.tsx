@@ -9,6 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { 
   recoverWalletWithBiometric, 
   hasBiometricBackup,
@@ -18,6 +19,7 @@ import { isBiometricAvailable, getBiometricType } from '../utils/biometric';
 import { PINInput } from '../components/PINInput';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
 import { AlertManager } from '../utils/alert';
+import { generateCPayId } from '../utils/cpayId';
 
 const FONT_SIZES = TYPOGRAPHY.sizes;
 
@@ -147,9 +149,13 @@ export const ForgotPINScreen: React.FC<ForgotPINScreenProps> = ({ navigation }) 
 
         const walletAddress = await recreateWalletFromMnemonic(recoveredMnemonic, newPin);
 
+        // Get phone number to generate C-Pay ID
+        const phoneNumber = await AsyncStorage.getItem('phone_number');
+        const displayId = phoneNumber ? generateCPayId(phoneNumber, walletAddress) : `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`;
+
         AlertManager.alert(
           '🎉 PIN Reset Successful',
-          `Your new PIN has been set!\n\nWallet: ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`,
+          `Your new PIN has been set!\n\nC-Pay ID: ${displayId}`,
           [
             {
               text: 'Login',
