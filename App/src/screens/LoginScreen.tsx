@@ -132,7 +132,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       <View style={styles.content}>
         <View style={styles.header}>
           <Image
-            source={require('../../assets/cpay_logo.jpg')}
+            source={require('../../assets/cpay_logo.png')}
             style={styles.logo}
             resizeMode="contain"
           />
