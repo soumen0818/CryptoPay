@@ -19,8 +19,32 @@ import { formatPAY, convertPAYtoINR } from '../utils/currency';
 import { formatDateShort } from '../utils/date';
 import { TransactionDetailModal } from '../components';
 import type { TransactionDetail } from '../components/TransactionDetailModal';
+import { getCPayIdByWallet } from '../utils/cpayId';
 
 const FONT_SIZES = TYPOGRAPHY.sizes;
+
+// Helper component to display sender info with C-Pay ID
+const SenderInfo: React.FC<{ fromAddress: string; senderName?: string }> = ({ fromAddress, senderName }) => {
+  const [displayName, setDisplayName] = React.useState(senderName || 'Loading...');
+
+  React.useEffect(() => {
+    const loadName = async () => {
+      if (senderName) {
+        setDisplayName(senderName);
+      } else {
+        const cpayId = await getCPayIdByWallet(fromAddress);
+        setDisplayName(cpayId || `${fromAddress.slice(0, 6)}...${fromAddress.slice(-4)}`);
+      }
+    };
+    loadName();
+  }, [fromAddress, senderName]);
+
+  return (
+    <Text style={styles.transactionFrom} numberOfLines={1}>
+      From: {displayName}
+    </Text>
+  );
+};
 
 interface MerchantTransactionsScreenProps {
   navigation: any;
@@ -88,9 +112,7 @@ export const MerchantTransactionsScreen: React.FC<MerchantTransactionsScreenProp
         </View>
       </View>
       <View style={styles.transactionFooter}>
-        <Text style={styles.transactionFrom} numberOfLines={1}>
-          From: {tx.sender_name || `${tx.from_address.slice(0, 6)}...${tx.from_address.slice(-4)}`}
-        </Text>
+        <SenderInfo fromAddress={tx.from_address} senderName={tx.sender_name} />
         <View style={[
           styles.statusBadge,
           tx.status === 'success' ? styles.statusSuccess : 

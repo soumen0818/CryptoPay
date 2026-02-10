@@ -21,6 +21,7 @@ import * as Clipboard from 'expo-clipboard';
 import { getMerchantProfile } from '../services/merchant';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
 import { AlertManager } from '../utils/alert';
+import { getCurrentMerchantCPayId } from '../utils/cpayId';
 
 const FONT_SIZES = TYPOGRAPHY.sizes;
 
@@ -35,6 +36,7 @@ export const MerchantGlobalQRScreen: React.FC<MerchantGlobalQRScreenProps> = ({
   const [qrValue, setQRValue] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [walletAddress, setWalletAddress] = useState('');
+  const [cpayId, setCpayId] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const qrRef = useRef<any>(null);
   const viewShotRef = useRef<ViewShot>(null);
@@ -55,6 +57,13 @@ export const MerchantGlobalQRScreen: React.FC<MerchantGlobalQRScreenProps> = ({
       if (profile) {
         setBusinessName(profile.business_name);
         setWalletAddress(address);
+        
+        // Load Merchant C-Pay ID from merchants table
+        const id = await getCurrentMerchantCPayId();
+        if (id) {
+          setCpayId(id);
+        }
+        
         if (profile.logo_url && profile.logo_url !== 'default-merchant-logo') {
           setLogoUrl(profile.logo_url);
         }
@@ -81,14 +90,14 @@ export const MerchantGlobalQRScreen: React.FC<MerchantGlobalQRScreenProps> = ({
   };
 
   const handleCopyAddress = async () => {
-    await Clipboard.setStringAsync(walletAddress);
+    await Clipboard.setStringAsync(cpayId || walletAddress);
     // Silent copy - no alert
   };
 
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Pay ${businessName}\nWallet: ${walletAddress}\n\nScan my QR code in C-Pay app to send payment instantly!`,
+        message: `Pay ${businessName}\nC-Pay ID: ${cpayId || walletAddress}\n\nScan my QR code in C-Pay app to send payment instantly!`,
       });
     } catch (error) {
       console.error('Error sharing:', error);
@@ -213,15 +222,15 @@ export const MerchantGlobalQRScreen: React.FC<MerchantGlobalQRScreenProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* Wallet Address */}
+        {/* C-Pay ID */}
         <View style={styles.walletCard}>
-          <Text style={styles.walletLabel}>Wallet Address</Text>
+          <Text style={styles.walletLabel}>C-Pay ID</Text>
           <TouchableOpacity
             style={styles.walletAddressContainer}
             onPress={handleCopyAddress}
           >
             <Text style={styles.walletAddress} numberOfLines={1}>
-              {walletAddress}
+              {cpayId || walletAddress}
             </Text>
             <Ionicons name="copy-outline" size={20} color={COLORS.primary} />
           </TouchableOpacity>

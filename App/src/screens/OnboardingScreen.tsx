@@ -34,7 +34,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }
         {/* Header */}
         <View style={styles.header}>
           <Image
-            source={require('../../assets/cpay_logo.jpg')}
+            source={require('../../assets/cpay_logo.png')}
             style={styles.logo}
             resizeMode="contain"
           />
