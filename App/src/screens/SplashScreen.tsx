@@ -59,7 +59,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ navigation }) => {
     <View style={styles.container}>
       <View style={styles.logoContainer}>
         <Image
-          source={require('../../assets/cpay_logo.jpg')}
+          source={require('../../assets/cpay_logo.png')}
           style={styles.logo}
           resizeMode="contain"
         />
