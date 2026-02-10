@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import EventEmitter from 'eventemitter3';
+import { generateCPayId } from '../utils/cpayId';
 
 // Event emitter for real-time updates
 export const storageEvents = new EventEmitter();
@@ -79,12 +80,15 @@ async function getOrCreateUser(walletAddress: string, phoneNumber?: string, disp
     }
 
     // Create new user
+    const cpayId = phoneNumber && walletAddress ? generateCPayId(phoneNumber, walletAddress) : null;
+    
     const { data: newUser, error: insertError } = await supabase
       .from('users')
       .insert({
         wallet_address: walletAddress,
         phone_number: phoneNumber || null,
         display_name: displayName || null,
+        cpay_id: cpayId, // Save C-Pay ID to database
       })
       .select('id')
       .single();

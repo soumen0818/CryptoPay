@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import EventEmitter from 'eventemitter3';
+import { generateCPayId } from '../utils/cpayId';
 
 // Event emitter for real-time merchant status updates
 export const merchantEvents = new EventEmitter();
@@ -140,9 +141,17 @@ export async function registerAsMerchant(merchant: Merchant): Promise<{
   error?: string;
 }> {
   try {
+    // Generate C-Pay ID if phone number is provided
+    const cpayId = merchant.phone_number && merchant.wallet_address 
+      ? generateCPayId(merchant.phone_number, merchant.wallet_address)
+      : undefined;
+    
     const { data, error } = await supabase
       .from('merchants')
-      .insert(merchant)
+      .insert({
+        ...merchant,
+        cpay_id: cpayId, // Save C-Pay ID to database
+      })
       .select()
       .single();
 
