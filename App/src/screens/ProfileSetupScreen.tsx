@@ -17,6 +17,7 @@ import { supabase } from '../services/supabase';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS } from '../constants/theme';
 import { Button, LoadingSpinner } from '../components';
 import { AlertManager } from '../utils/alert';
+import { generateCPayId } from '../utils/cpayId';
 
 interface ProfileSetupScreenProps {
   navigation: any;
@@ -134,6 +135,9 @@ export const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({ navigati
       
       // Only save phone number if it's not the development number
       const phoneToSave = isDevPhone ? null : phoneNumber;
+      
+      // Generate C-Pay ID if not dev phone
+      const cpayId = !isDevPhone ? generateCPayId(phoneNumber, walletAddress) : null;
 
       // Update user profile in database
       const { error: dbError } = await supabase
@@ -141,6 +145,7 @@ export const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({ navigati
         .update({
           display_name: fullName.trim(),
           phone_number: phoneToSave, // Will be null for dev phone
+          cpay_id: cpayId, // Save C-Pay ID to database
           profile_photo_url: photoUrl,
         })
         .eq('wallet_address', walletAddress);

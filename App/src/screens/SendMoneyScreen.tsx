@@ -16,6 +16,7 @@ import { getWallet } from '../services/wallet';
 import { getProvider, getTokenContract, transferTokens } from '../services/blockchain';
 import { saveTransaction, getUserDisplayName, generateTransactionId } from '../services/storage';
 import { authenticateWithBiometric, authenticateWithPIN } from '../utils/biometric';
+import { getCPayIdByWallet, isValidCPayId, getWalletAddressFromCPayId } from '../utils/cpayId';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS } from '../constants/theme';
 import { Button, LoadingSpinner } from '../components';
 import { AlertManager } from '../utils/alert';
@@ -28,7 +29,9 @@ interface SendMoneyScreenProps {
 export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, route }) => {
   const [walletAddress, setWalletAddress] = useState<string>('');
   const [recipientAddress, setRecipientAddress] = useState<string>('');
+  const [recipientInput, setRecipientInput] = useState<string>(''); // Store original input (C-Pay ID or wallet)
   const [recipientName, setRecipientName] = useState<string>('');
+  const [recipientCPayId, setRecipientCPayId] = useState<string>('');
   const [amount, setAmount] = useState<string>(''); // User enters INR (1:1 with tokens)
   const [note, setNote] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -128,6 +131,7 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
   const fetchRecipientName = async (address: string) => {
     if (!address || !ethers.isAddress(address)) {
       setRecipientName('');
+      setRecipientCPayId('');
       setRecipientFetched(false);
       return;
     }
@@ -135,53 +139,97 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
     // Don't fetch if same as user's wallet
     if (address.toLowerCase() === walletAddress.toLowerCase()) {
       setRecipientName('');
+      setRecipientCPayId('');
       setRecipientFetched(false);
       return;
     }
 
     setFetchingRecipient(true);
     try {
-      const name = await getUserDisplayName(address);
+      // Fetch both name and C-Pay ID
+      const [name, cpayId] = await Promise.all([
+        getUserDisplayName(address),
+        getCPayIdByWallet(address)
+      ]);
+      
       if (name) {
         setRecipientName(name);
+        setRecipientCPayId(cpayId || '');
         setRecipientFetched(true);
       } else {
         setRecipientName('');
+        setRecipientCPayId('');
         setRecipientFetched(false);
       }
     } catch (error) {
       console.log('Error fetching recipient name:', error);
       setRecipientName('');
+      setRecipientCPayId('');
       setRecipientFetched(false);
     } finally {
       setFetchingRecipient(false);
     }
   };
 
-  // Handle address input change - auto-fetch when valid address is entered
-  const handleAddressChange = (address: string) => {
-    setRecipientAddress(address);
+  // Handle address input change - auto-fetch when valid address or C-Pay ID is entered
+  const handleAddressChange = async (input: string) => {
+    setRecipientInput(input);
     
     // Clear previous recipient info when address changes
     if (!isFromQR) {
+      setRecipientAddress('');
       setRecipientName('');
+      setRecipientCPayId('');
       setRecipientFetched(false);
     }
     
+    // Check if input is a valid C-Pay ID
+    if (!isFromQR && isValidCPayId(input.trim())) {
+      setFetchingRecipient(true);
+      try {
+        // Look up wallet address from C-Pay ID
+        const walletAddr = await getWalletAddressFromCPayId(input.trim());
+        if (walletAddr) {
+          setRecipientAddress(walletAddr);
+          // Fetch name and C-Pay ID
+          await fetchRecipientName(walletAddr);
+        } else {
+          setRecipientAddress('');
+          setRecipientName('');
+          setRecipientCPayId('');
+          setRecipientFetched(false);
+        }
+      } catch (error) {
+        console.error('Error looking up C-Pay ID:', error);
+      } finally {
+        setFetchingRecipient(false);
+      }
+      return;
+    }
+    
+    // Otherwise treat as wallet address
+    setRecipientAddress(input);
+    
     // Auto-fetch when a complete valid Ethereum address is entered (42 chars: 0x + 40 hex)
-    if (!isFromQR && address.length === 42 && ethers.isAddress(address)) {
-      fetchRecipientName(address);
+    if (!isFromQR && input.length === 42 && ethers.isAddress(input)) {
+      fetchRecipientName(input);
     }
   };
 
   const validateInputs = (): boolean => {
+    if (!recipientInput.trim() && !recipientAddress.trim()) {
+      AlertManager.alert('Invalid Address', 'Please enter a recipient wallet address or C-Pay ID');
+      return false;
+    }
+
+    // If recipient address is not set yet (C-Pay ID lookup failed or in progress)
     if (!recipientAddress.trim()) {
-      AlertManager.alert('Invalid Address', 'Please enter a recipient wallet address');
+      AlertManager.alert('Invalid Input', 'Could not find wallet address for the entered C-Pay ID');
       return false;
     }
 
     if (!ethers.isAddress(recipientAddress.trim())) {
-      AlertManager.alert('Invalid Address', 'Please enter a valid Ethereum address');
+      AlertManager.alert('Invalid Address', 'Please enter a valid wallet address or C-Pay ID');
       return false;
     }
 
@@ -208,9 +256,12 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
   const handleSendMoney = async () => {
     if (!validateInputs()) return;
 
+    // Use C-Pay ID if available, otherwise show truncated address
+    const displayId = recipientCPayId || `${recipientAddress.substring(0, 10)}...${recipientAddress.substring(recipientAddress.length - 8)}`;
+
     AlertManager.alert(
       'Confirm Payment',
-      `Send ₹${parseFloat(amount).toFixed(2)} to\n${recipientAddress.substring(0, 10)}...${recipientAddress.substring(recipientAddress.length - 8)}${note ? `\n\nNote: ${note}` : ''}`,
+      `Send ₹${parseFloat(amount).toFixed(2)} to\n${displayId}${note ? `\n\nNote: ${note}` : ''}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -467,7 +518,7 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
             <View style={styles.recipientCardContent}>
               <Text style={styles.recipientCardName}>{recipientName}</Text>
               <Text style={styles.recipientCardAddress} numberOfLines={1}>
-                {recipientAddress.slice(0, 10)}...{recipientAddress.slice(-8)}
+                {recipientCPayId || `${recipientAddress.slice(0, 10)}...${recipientAddress.slice(-8)}`}
               </Text>
             </View>
           </View>
@@ -476,13 +527,13 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
         {/* Recipient Address Input - Hide when recipient is fetched or from QR */}
         {!isFromQR && !recipientFetched && (
           <View style={styles.inputSection}>
-            <Text style={styles.inputLabel}>Recipient Wallet Address</Text>
+            <Text style={styles.inputLabel}>Recipient Wallet Address or C-Pay ID</Text>
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
-                placeholder="0x..."
+                placeholder="0x... or 9876543210@cpay1a2b"
                 placeholderTextColor={COLORS.textTertiary}
-                value={recipientAddress}
+                value={recipientInput}
                 onChangeText={handleAddressChange}
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -502,8 +553,10 @@ export const SendMoneyScreen: React.FC<SendMoneyScreenProps> = ({ navigation, ro
           <TouchableOpacity 
             style={styles.changeRecipientButton}
             onPress={() => {
+              setRecipientInput('');
               setRecipientAddress('');
               setRecipientName('');
+              setRecipientCPayId('');
               setRecipientFetched(false);
             }}
           >
