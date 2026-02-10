@@ -27,6 +27,7 @@ import { isBiometricAvailable, getBiometricType } from '../utils/biometric';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, SHADOWS, BLOCKCHAIN_CONFIG } from '../constants/theme';
 import { Card, Button } from '../components';
 import { AlertManager } from '../utils/alert';
+import { getCurrentUserCPayId } from '../utils/cpayId';
 
 interface ProfileScreenProps {
   navigation: any;
@@ -34,6 +35,7 @@ interface ProfileScreenProps {
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   const [walletAddress, setWalletAddress] = useState<string>('');
+  const [cpayId, setCpayId] = useState<string>('');
   const [displayName, setDisplayName] = useState<string>('');
   const [merchantStatus, setMerchantStatus] = useState<boolean>(false);
   const [businessName, setBusinessName] = useState<string>('');
@@ -46,6 +48,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 
   useEffect(() => {
     loadWalletAddress();
+    loadCPayId();
     loadDisplayName();
     checkMerchantStatus();
     loadSettings();
@@ -67,11 +70,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     };
   }, []);
 
-  // Refresh merchant status when screen comes into focus
+  // Refresh all profile data when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      console.log('🔄 ProfileScreen focused - refreshing merchant status');
+      console.log('🔄 ProfileScreen focused - refreshing all data');
+      loadCPayId();
+      loadDisplayName();
       checkMerchantStatus();
+      loadProfilePhoto();
+      loadSettings();
     }, [])
   );
 
@@ -79,6 +86,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     const address = await AsyncStorage.getItem('wallet_address');
     if (address) {
       setWalletAddress(address);
+    }
+  };
+
+  const loadCPayId = async () => {
+    const id = await getCurrentUserCPayId();
+    if (id) {
+      setCpayId(id);
     }
   };
 
@@ -301,14 +315,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   };
 
   const handleCopyAddress = async () => {
-    await Clipboard.setStringAsync(walletAddress);
+    await Clipboard.setStringAsync(cpayId || walletAddress);
     // Silent copy - no alert
   };
 
   const handleShareAddress = async () => {
     try {
       await Share.share({
-        message: `My C-Pay wallet address:\n${walletAddress}`,
+        message: `My C-Pay ID:\n${cpayId || walletAddress}`,
       });
     } catch (error) {
       console.error('Error sharing:', error);
@@ -440,7 +454,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           activeOpacity={0.7}
         >
           <Text style={styles.profileAddress}>
-            {walletAddress.substring(0, 10)}...{walletAddress.substring(walletAddress.length - 8)}
+            {cpayId || `${walletAddress.substring(0, 10)}...${walletAddress.substring(walletAddress.length - 8)}`}
           </Text>
           <Ionicons name="copy-outline" size={20} color={COLORS.primary} />
         </TouchableOpacity>
@@ -483,7 +497,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                     />
                     {displayName && <Text style={styles.shareCardName}>{displayName}</Text>}
                     <Text style={styles.shareCardAddress}>
-                      {walletAddress.substring(0, 8)}...{walletAddress.substring(walletAddress.length - 6)}
+                      {cpayId || `${walletAddress.substring(0, 8)}...${walletAddress.substring(walletAddress.length - 6)}`}
                     </Text>
                   </View>
                   

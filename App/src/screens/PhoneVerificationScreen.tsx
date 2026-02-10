@@ -88,6 +88,17 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
       formattedPhone = '+91' + formattedPhone;
     }
 
+    // In dev mode, bypass OTP sending but move to OTP stage
+    const isDevMode = process.env.EXPO_PUBLIC_DEV_MODE === 'true';
+    if (isDevMode) {
+      setVerificationId('dev-bypass');
+      setStep('otp');
+      setTimer(30);
+      setCanResend(false);
+      setLoading(false);
+      return;
+    }
+
     const result = await sendOTP(formattedPhone);
 
     if (result.success && result.verificationId) {
@@ -126,16 +137,27 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
 
     setLoading(true);
 
-    const result = await verifyOTP(verificationId, otp);
+    // In dev mode, bypass OTP verification
+    const isDevMode = process.env.EXPO_PUBLIC_DEV_MODE === 'true';
+    const devOTP = process.env.EXPO_PUBLIC_DEV_OTP || '123456';
+    
+    let result;
+    if (isDevMode && otp === devOTP) {
+      // Dev mode bypass - accept dev OTP with any phone number
+      let formattedPhone = phoneNumber.trim();
+      if (!formattedPhone.startsWith('+')) {
+        formattedPhone = '+91' + formattedPhone;
+      }
+      result = { success: true, phoneNumber: formattedPhone };
+    } else {
+      // Normal verification
+      result = await verifyOTP(verificationId, otp);
+    }
 
     if (result.success) {
       const verifiedPhone = result.phoneNumber || phoneNumber;
       
-      // Check if this is the development phone number
-      const devPhoneNumber = process.env.EXPO_PUBLIC_DEV_PHONE || '+911234567890';
-      const isDevPhone = verifiedPhone === devPhoneNumber;
-      
-      // Save phone number (even if dev, for local reference)
+      // Save phone number
       await AsyncStorage.setItem('phone_number', verifiedPhone);
       
       // Check if user already has a wallet (returning user after sign out)
@@ -146,8 +168,10 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
         const storedPhone = await AsyncStorage.getItem('phone_number');
         const walletAddress = await AsyncStorage.getItem('wallet_address');
         
-        // For dev phone, skip strict verification since it's not stored in DB
-        if (!isDevPhone) {
+        // In dev mode, skip strict verification
+        const isDevMode = process.env.EXPO_PUBLIC_DEV_MODE === 'true';
+        
+        if (!isDevMode) {
           if (storedPhone !== verifiedPhone) {
             // Phone number doesn't match - this might be a different account
             AlertManager.alert(
@@ -168,7 +192,7 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
             return;
           }
           
-          // Verify with database that phone and wallet match (only for real phones)
+          // Verify with database that phone and wallet match
           const { data: userData, error: dbError } = await supabase
             .from('users')
             .select('wallet_address, phone_number')
@@ -196,8 +220,8 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
             return;
           }
         } else {
-          // For dev phone, just verify wallet exists locally
-          console.log('Dev phone detected - skipping database verification');
+          // Dev mode - skip strict verification
+          console.log('Dev mode - skipping phone/wallet verification');
         }
         
         // Phone and wallet match - allow login
@@ -353,6 +377,15 @@ export const PhoneVerificationScreen: React.FC<PhoneVerificationScreenProps> = (
                 {otp.length === 0 ? 'Tap to enter OTP' : otp.length < 6 ? `${6 - otp.length} digits remaining` : '✓ OTP entered'}
               </Text>
             </TouchableOpacity>
+
+            {/* Dev Mode Hint */}
+            {process.env.EXPO_PUBLIC_DEV_MODE === 'true' && (
+              <View style={styles.devHint}>
+                <Text style={styles.devHintText}>
+                  🔧 Dev Mode: Use OTP {process.env.EXPO_PUBLIC_DEV_OTP || '123456'}
+                </Text>
+              </View>
+            )}
 
             {/* Timer and Resend */}
             <View style={styles.timerContainer}>
